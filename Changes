@@ -1,0 +1,15 @@
+version 2.2.3
+- fixed defect which caused segmentation fault if marking text on the last 
+  line of a buffer
+
+version 2.2.2
+- added handling for DOS/Windows files (with CR/LF)
+- minor changes to allow use of /usr/local/aee for help.ae and init.ae files
+
+version 2.2.1
+- Minor error and help message changes to improve usability
+
+[aee-2.2.0-1]
+- First announcement to Freshmeat
+
+
