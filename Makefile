@@ -16,6 +16,9 @@ main :	localaee buildaee
 
 all :	both
 
+aee :	main
+	exit
+
 both :	main xae
 
 xae :	localxae buildxae

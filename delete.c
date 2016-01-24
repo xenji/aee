@@ -1,11 +1,11 @@
 /*
  |	delete.c
  |
- |	$Header: /home/hugh/sources/aee/RCS/delete.c,v 1.9 1996/05/07 03:10:31 hugh Exp $
+ |	$Header: /home/hugh/sources/aee/RCS/delete.c,v 1.10 2009/03/12 02:52:13 hugh Exp hugh $
  */
 
 /*
- |	Copyright (c) 1986 - 1988, 1991 - 1996 Hugh Mahon.
+ |	Copyright (c) 1986 - 1988, 1991 - 1996, 2009, 2010 Hugh Mahon.
  */
 
 #include "aee.h"
@@ -69,7 +69,7 @@ int length;
 		d_word2++;
 		d_word3++;
 	}
-	*d_word2 = (char) NULL;
+	*d_word2 = '\0';
 	d_word2 = curr_buff->pointer;
 	if ((mark_text) && (pst_pos != cpste_line->line_length))
 	{
@@ -115,7 +115,7 @@ int length;
 			wmove(curr_buff->win, curr_buff->scr_vert, curr_buff->scr_horz);
 		}
 	}
-	*d_word2 = (char) NULL;
+	*d_word2 = '\0';
 	draw_line(curr_buff->scr_vert, curr_buff->scr_pos, curr_buff->pointer, curr_buff->position, curr_buff->curr_line);
 	return(temp_point);
 }
@@ -173,7 +173,7 @@ int length;
 	curr_buff->curr_line->changed = TRUE;
 	curr_buff->changed = TRUE;
 	d_word2 = curr_buff->pointer;
-	*d_word5 = (char) NULL;
+	*d_word5 = '\0';
 	d_word3 = d_word4;
 	tposit = 1;
 	while (tposit < temp)
@@ -183,7 +183,7 @@ int length;
 		d_word3++;
 		d_word2++;
 	}
-	*d_word2 = (char) NULL;
+	*d_word2 = '\0';
 	if ((mark_text) && (pst_pos == 1) && ((cpste_line->line_length > 1) || (cpste_line->next_line != NULL)))
 	{
 		temp_mark = mark_text;
@@ -269,7 +269,7 @@ int save_flag;
 	d_line = del_string(difference);
 	if ((dlt_line->line_length > 1) && (save_flag))
 		last_deleted(LINE_DELETED, dlt_line->line_length, d_line);
-	*curr_buff->pointer = (char) NULL;
+	*curr_buff->pointer = '\0';
 	curr_buff->curr_line->line_length = curr_buff->position;
 	formatted = FALSE;
 }
@@ -298,7 +298,7 @@ int save_flag;
 		{
 			pst_pos = cpste_line->line_length = 1;
 			pst_pnt = pst_line = cpste_line->line;
-			*pst_pnt = (char) NULL;
+			*pst_pnt = '\0';
 		}
 	}
 	if (curr_buff->curr_line->next_line != NULL)
@@ -341,7 +341,7 @@ undel_line()			/* undelete last deleted line		*/
 		ud1++;
 		ud2++;
 	}
-	*ud1 = (char) NULL;
+	*ud1 = '\0';
 	if ((mark_text) && (pst_pos != cpste_line->line_length))
 	{
 		temp_mark = mark_text;
@@ -477,7 +477,7 @@ delete_text()
 		free(curr_buff->curr_line->next_line);
 	}
 	curr_buff->curr_line->next_line = NULL;
-	*curr_buff->curr_line->line = (char) NULL;
+	*curr_buff->curr_line->line = '\0';
 	curr_buff->curr_line->line_length = 1;
 	curr_buff->curr_line->line_number = 1;
 	curr_buff->pointer = curr_buff->curr_line->line;
@@ -630,7 +630,7 @@ int disp;
 			tp++;
 			temp2++;
 		}
-		*tp = (char) NULL;
+		*tp = '\0';
 		curr_buff->curr_line->changed = TRUE;
 		curr_buff->changed = TRUE;
 		free(temp_buff->line);

@@ -1,7 +1,7 @@
 /*
  |	help.c
  |
- |	$Header: /home/hugh/sources/aee/RCS/help.c,v 1.9 1999/02/01 04:28:08 hugh Exp hugh $
+ |	$Header: /home/hugh/sources/aee/RCS/help.c,v 1.10 2009/03/12 02:55:15 hugh Exp hugh $
  */
 
 /*
@@ -118,7 +118,7 @@ ask()	/* prompt user what help topic do they wish to learn about	*/
 	char *tline;
 
 	topic = get_string(topic_prompt, FALSE);
-	if (*topic == (char) NULL)
+	if (*topic == '\0')
 		go_on = FALSE;
 	else if (*topic != 9)
 	{
@@ -128,9 +128,9 @@ ask()	/* prompt user what help topic do they wish to learn about	*/
 			tline = sline = fgets(help_line, 512, fp);
 			if (tline != NULL)
 			{
-				while ((*tline != '\n') && (*tline != (char) NULL))
+				while ((*tline != '\n') && (*tline != '\0'))
 					tline++;
-				*tline = (char) NULL;
+				*tline = '\0';
 			}
 		}
 		while ((sline != NULL) && (strncmp(sline, topic, strlen(topic))));

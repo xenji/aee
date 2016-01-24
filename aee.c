@@ -7,7 +7,7 @@
 	|	ae (another editor)					|
 	+---------------------------------------------------------------+
 
-	$Header: /home/hugh/sources/aee/RCS/aee.c,v 1.65 1999/10/10 02:29:39 hugh Exp $
+	$Header: /home/hugh/sources/aee/RCS/aee.c,v 1.82 2010/07/18 21:52:26 hugh Exp hugh $
 
 */
 
@@ -48,7 +48,7 @@
  |	copyright.  All rights are reserved.
  |
  */
-char *copyright_notice = "Copyright (c) 1986 - 1988, 1991 - 1999 Hugh Mahon.";
+char *copyright_notice = "Copyright (c) 1986 - 1988, 1991 - 2002, 2009, 2010 Hugh Mahon.";
 
 char *long_notice[] = {
 	"This software and documentation contains", 
@@ -56,7 +56,9 @@ char *long_notice[] = {
 	"copyright.  All rights are reserved."
 	};
 
-char *version_string = "@(#) aee (another easy editor) version 2.2.3 October 1999 $Revision: 1.65 $";
+#include "aee_version.h"
+
+char *version_string = "@(#) aee (another easy editor) version "  AEE_VERSION  " " DATE_STRING " $Revision: 1.82 $";
 
 #include "aee.h"
 
@@ -162,6 +164,7 @@ char restricted = FALSE;	/* flag to indicate restricted mode	*/
 char com_win_initialized = FALSE;
 char text_only = TRUE;		/* editor is to treat file being read as 
 				   text only (not a binary file)	*/
+char ee_mode_menu = FALSE;	/* make main menu look more like ee's	*/
 
 long mask;			/* mask for sigblock			*/
 #ifdef XAE
@@ -398,6 +401,9 @@ struct menu_entries edit_menu[] = {
 	{NULL, NULL, NULL, NULL, NULL, -1}
 	};
 
+char *main_menu_strings[10];
+char *ee_mode_main_menu_strings[10];
+
 struct menu_entries main_menu[] = {
 	{"", NULL, NULL, NULL, NULL, 0}, 
 	{"", NULL, NULL, NULL, leave_op, -1}, 
@@ -426,8 +432,8 @@ struct menu_entries rae_err_menu[] = {
 	};
 
 
-char *commands[70];
-char *init_strings[40];
+char *commands[72];
+char *init_strings[41];
 
 /*
  |	memory debugging macros
@@ -507,6 +513,9 @@ char *info_help_msg;
 char *unix_text_msg, *dos_text_msg;
 char *text_cmd, *binary_cmd;
 char *text_msg, *binary_msg, *dos_msg, *unix_msg;
+char *DIFF_str;
+char *ee_mode_str;
+char *journal_str, *journal_err_str;
 
 int 
 main(argc, argv)		/* beginning of main program		*/
@@ -523,6 +532,11 @@ char *argv[];
 /*
  |	The following code will start an xterm which will in turn execute 
  |	a debugger and "adopt" the process, so it can be debugged.
+ |
+ |	To compile to allow debug, use the command:
+ |
+ |		CFLAGS='-DDIAG_DBG -g' make
+ |
  */
 
 			int child_id;
@@ -534,6 +548,7 @@ char *argv[];
 				sprintf(command_line, 
 	      			"xterm -geom =80x40 -fg wheat -bg DarkSlateGrey -n %s -e gdb %s %d", 
 					"hello",  argv[0], child_id);
+				printf("command_line=%s\n", command_line);
 				execl("/bin/sh", "sh", "-c", command_line, NULL);
 				fprintf(stderr, "could not exec new window\n");
 				exit(1);
@@ -542,10 +557,10 @@ char *argv[];
 /*
  |	When in debugger, set child_id to zero (p child_id=0) to continue 
  |	executing the software.
+ */
 
 			while (child_id != 0)
 				;
- */
 			argc--;
 		}
 #endif
@@ -578,7 +593,7 @@ char *argv[];
 	d_word = NULL;
 	d_wrd_len = 0;
 	d_line = xalloc(1);
-	*d_line = (char) NULL;
+	*d_line = '\0';
 	tabs = (struct tab_stops *) xalloc(sizeof( struct tab_stops));
 	tabs->next_stop = NULL;
 	tabs->column = 0;
@@ -724,6 +739,10 @@ get_input(win_ptr)
 WINDOW *win_ptr;
 {
 	int value;
+#ifndef XAE
+	static int counter = 0;
+	pid_t parent_pid;
+#endif /* XAE */
 
 	resize_check();
 
@@ -737,6 +756,28 @@ WINDOW *win_ptr;
 
 	if (in == EOF)		/* somehow lost contact with input	*/
 		abort_edit(0);
+
+#ifndef XAE
+	/*
+	 |	The above check used to work to detect if the parent 
+	 |	process died, but now it seems we need a more 
+	 |	sophisticated check.
+	 |
+	 |	Note that this check is only required for the terminal 
+	 |	version, and may be undesireable for xae, so is ifdef'd 
+	 |	accordingly.
+	 */
+	if (counter > 50)
+	{
+		parent_pid = getppid();
+		if (parent_pid == 1)
+			abort_edit(0);
+		else
+			counter = 0;
+	}
+	else
+		counter++;
+#endif /* !XAE */
 }
 
 void 
@@ -750,16 +791,16 @@ status_display()	/* display status line			*/
 		if (curr_buff->edit_buffer)
 		{
 			if (curr_buff->file_name != NULL)
-				wprintw(com_win, "%s  ", curr_buff->file_name);
+				wprintw(com_win, "%c%s  ", CHNG_SYMBOL(curr_buff->changed), curr_buff->file_name);
 			else
-				wprintw(com_win, "[%s]  ", no_file_string);
+				wprintw(com_win, "%c[%s]  ", CHNG_SYMBOL(curr_buff->changed), no_file_string);
 		}
 		else
 		{
-			if (first_buff->file_name != NULL)
-				wprintw(com_win, "%s  ",first_buff->file_name);
+			if (curr_buff->name != NULL)
+				wprintw(com_win, "%c->%s  ", CHNG_SYMBOL(curr_buff->changed), curr_buff->name);
 			else
-				wprintw(com_win, "[%s]  ", no_file_string);
+				wprintw(com_win, "%c[%s]  ", CHNG_SYMBOL(curr_buff->changed), no_file_string);
 		}
 
 		wmove(com_win, 0, 16);
@@ -799,6 +840,15 @@ status_display()	/* display status line			*/
 		{
 			wprintw(com_win, "%s", 
 			  curr_buff->dos_file ? dos_text_msg : unix_text_msg);
+		}
+
+		if (curr_buff->footer != NULL)
+		{
+			wmove(curr_buff->footer, 0,0);
+			wstandout(curr_buff->footer);
+			wprintw(curr_buff->footer, "%c", CHNG_SYMBOL(curr_buff->changed) );
+			wstandend(curr_buff->footer);
+			wrefresh(curr_buff->footer);
 		}
 		wrefresh(com_win);
 	}
@@ -1060,9 +1110,9 @@ char *string;
 	struct tab_stops *stack_point;
 
 	pointer = string;
-	while (*pointer != (char) NULL)
+	while (*pointer != '\0')
 	{
-		while (((*pointer < '0') || (*pointer > '9')) && (*pointer != (char) NULL))
+		while (((*pointer < '0') || (*pointer > '9')) && (*pointer != '\0'))
 			pointer++;
 		column = atoi(pointer);
 		temp_stack_point = tabs;
@@ -1083,7 +1133,7 @@ char *string;
 				free(stack_point);
 			}
 		}
-		while (((*pointer >= '0') && (*pointer <= '9')) && (*pointer != (char) NULL))
+		while (((*pointer >= '0') && (*pointer <= '9')) && (*pointer != '\0'))
 			pointer++;
 	}
 }
@@ -1099,9 +1149,9 @@ char *string;
 	struct tab_stops *stack_point;
 
 	pointer = string;
-	while (*pointer != (char) NULL)
+	while (*pointer != '\0')
 	{
-		while (((*pointer < '0') || (*pointer > '9')) && (*pointer != (char) NULL))
+		while (((*pointer < '0') || (*pointer > '9')) && (*pointer != '\0'))
 			pointer++;
 		column = atoi(pointer);
 		temp_stack_point = tabs;
@@ -1123,7 +1173,7 @@ char *string;
 				temp_stack_point->next_stop = stack_point;
 			}
 		}
-		while (((*pointer >= '0') && (*pointer <= '9')) && (*pointer != (char) NULL))
+		while (((*pointer >= '0') && (*pointer <= '9')) && (*pointer != '\0'))
 			pointer++;
 	}
 }
@@ -1204,7 +1254,7 @@ int offset;
 			tmp++;
 			*tmp = '>';
 			tmp++;
-			*tmp = (char) NULL;
+			*tmp = '\0';
 		}
 		else
 		{
@@ -1217,7 +1267,7 @@ int offset;
 		tmp++;
 	for (iter = column;
 	     (((iter <= curr_buff->last_col) && (row == curr_buff->last_line)) || 
-	     (row < curr_buff->last_line)) && (*tmp != (char) NULL); iter++, tmp++)
+	     (row < curr_buff->last_line)) && (*tmp != '\0'); iter++, tmp++)
 		waddch(window, *tmp);
 	iter -= column;
 	if (space)
@@ -1373,7 +1423,7 @@ int disp;
 			temp++;
 		}
 		temp = curr_buff->pointer;
-		*temp = (char) NULL;
+		*temp = '\0';
 		temp = resiz_line((1 - temp_nod->line_length), curr_buff->curr_line, curr_buff->position);
 		curr_buff->curr_line->line_length = curr_buff->position;
 		curr_buff->curr_line->vert_len = (scanline(curr_buff->curr_line, curr_buff->curr_line->line_length) / COLS) + 1;
@@ -1382,7 +1432,7 @@ int disp;
 	curr_buff->curr_line->line_length = curr_buff->position;
 	curr_buff->curr_line = temp_nod;
 	curr_buff->curr_line->vert_len = (scanline(curr_buff->curr_line, curr_buff->curr_line->line_length) / COLS) + 1;
-	*extra = (char) NULL;
+	*extra = '\0';
 	curr_buff->position = 1;
 	curr_buff->pointer = curr_buff->curr_line->line;
 	curr_buff->num_of_lines++;
@@ -1493,15 +1543,16 @@ struct bufr *buf_alloc()	/* allocate space for buffers		*/
 	temp_buf->main_buffer = FALSE;
 	temp_buf->edit_buffer = FALSE;
 	temp_buf->dos_file = FALSE;
+	temp_buf->journ_fd = NULL;
 	return (temp_buf);
 }
 
 char *next_word(string)		/* move to next word in string		*/
 char *string;
 {
-	while ((*string != (char) NULL) && ((*string != 32) && (*string != 9)))
+	while ((*string != '\0') && ((*string != 32) && (*string != 9)))
 		string++;
-	while ((*string != (char) NULL) && ((*string == 32) || (*string == 9)))
+	while ((*string != '\0') && ((*string == 32) || (*string == 9)))
 		string++;
 	return(string);
 }
@@ -1591,9 +1642,9 @@ int advance;		/* if true, skip leading spaces and tabs	*/
 		}
 		wrefresh(com_win);
 		if (esc_flag)
-			in = (char) NULL;
+			in = '\0';
 	} while ((in != '\n') && (in != '\r'));
-	*nam_str = (char) NULL;
+	*nam_str = '\0';
 	nam_str = tmp_string;
 	if (((*nam_str == ' ') || (*nam_str == 9)) && (advance))
 		nam_str = next_word(nam_str);
@@ -1635,7 +1686,7 @@ ascii()		/* get ascii code from user and insert into file	*/
 
 	i = 0;
 	t = string = get_string(ascii_code_str, TRUE);
-	if (*t != (char) NULL)
+	if (*t != '\0')
 	{
 		while ((*string >= '0') && (*string <= '9'))
 		{
@@ -1676,7 +1727,7 @@ int sensitive;
 	strng1 = string1;
 	strng2 = string2;
 	tmp = 0;
-	if ((strng1 == NULL) || (strng2 == NULL) || (*strng1 == (char) NULL) || (*strng2 == (char) NULL))
+	if ((strng1 == NULL) || (strng2 == NULL) || (*strng1 == '\0') || (*strng2 == '\0'))
 		return(FALSE);
 	equal = TRUE;
 	while (equal)
@@ -1693,7 +1744,7 @@ int sensitive;
 		}
 		strng1++;
 		strng2++;
-		if ((*strng1 == (char) NULL) || (*strng2 == (char) NULL) || (*strng1 == ' ') || (*strng2 == ' '))
+		if ((*strng1 == '\0') || (*strng2 == '\0') || (*strng1 == ' ') || (*strng2 == ' '))
 			break;
 		tmp++;
 	}
@@ -2066,7 +2117,7 @@ char *arguments[];
 			else if (*buff == 'h')	/* get height of window	*/
 			{
 				buff++;
-				if (*buff == (char) NULL)
+				if (*buff == '\0')
 				{
 					count++;
 					buff = arguments[count];
@@ -2076,7 +2127,7 @@ char *arguments[];
 			else if (*buff == 'w')	/* get width of window	*/
 			{
 				buff++;
-				if (*buff == (char) NULL)
+				if (*buff == '\0')
 				{
 					count++;
 					buff = arguments[count];
@@ -2101,13 +2152,13 @@ char *arguments[];
 			}
 			temp_names->next_name = NULL;
 			extens = temp_names->name = xalloc(strlen(buff) + 1);
-			while (*buff != (char) NULL)
+			while (*buff != '\0')
 			{
 				*extens = *buff;
 				buff++;
 				extens++;
 			}
-			*extens = (char) NULL;
+			*extens = '\0';
 			input_file = TRUE;
 			recv_file = TRUE;
 		}
@@ -2211,6 +2262,9 @@ char *string;
 	if (first_buff->changed) /* if changes have been made in the file */
 	{
 		ans = get_string(changes_made_prompt, TRUE);
+       		wmove(com_win, 0, 0);
+        	werase(com_win);
+	        wrefresh(com_win);
 		if (toupper(*ans) != toupper(*yes_char))
 			return;
 	}
@@ -2224,7 +2278,7 @@ char *string;
 	{
 		remove_journal_file(curr_buff);
 	}
-	while ((string != NULL) && (*string != (char) NULL) && (*string != '!'))
+	while ((string != NULL) && (*string != '\0') && (*string != '!'))
 		string++;
 	if ((string != NULL) && (*string == '!'))
 		top_of_stack = NULL;
@@ -2315,7 +2369,7 @@ char *string;		/* string containing user command		*/
 	if (!(path = getenv("SHELL")))
 		path = "/bin/sh";
 	last_slash = temp_point = path;
-	while (*temp_point != (char) NULL)
+	while (*temp_point != '\0')
 	{
 		if (*temp_point == '/')
 			last_slash = ++temp_point;
@@ -2429,6 +2483,8 @@ char *string;		/* string containing user command		*/
 					while (line_holder != NULL)
 					{
 						write(pipe_out[1], line_holder->line, (line_holder->line_length-1));
+                                                if (tmp->dos_file)
+                                                   write(pipe_out[1], "\r", 1);
 						write(pipe_out[1], "\n", 1);
 						line_holder = line_holder->next_line;
 					}
@@ -2507,7 +2563,7 @@ char *str1, *str2;
 
 	t1 = str1;
 	t2 = str2;
-	while (*t1 != (char) NULL)
+	while (*t1 != '\0')
 	{
 		*t2 = *t1;
 		t2++;
@@ -2526,7 +2582,7 @@ char *string;
 	if (echo_flag)
 	{
 		temp = string;
-		while (*temp != (char) NULL)
+		while (*temp != '\0')
 		{
 			if (*temp == '\\')
 			{
@@ -2570,11 +2626,13 @@ char *string;
 	fflush(stdout);
 }
 
-char *init_name[4] = {
+char *init_name[6] = {
 	"/usr/local/aee/init.ae", 
 	"/usr/local/lib/init.ae", 
-	NULL, 
-	".init.ae"
+	NULL,                           /* to be ~/.init.ae */
+	".init.ae",
+	NULL,                           /* to be ~/.aeerc */
+	".aeerc"
 	};
 
 void 
@@ -2590,13 +2648,20 @@ ae_init()	/* check for init file and read it if it exists	*/
 	int lines;
 	int counter;
 
-
 	home = xalloc(11);
 	strcpy(home, "~/.init.ae");
 	init_name[2] = resolve_name(home);
+	free(home);
+
+	home = xalloc(11);
+	strcpy(home, "~/.aeerc");
+	init_name[4] = resolve_name(home);
+	free(home);
+	
+	
 
 	string = xalloc(512);
-	for (counter = 0; counter < 4; counter++)
+	for (counter = 0; counter < 6; counter++)
 	{
 		lines = 1;
 		if (!(access(init_name[counter], 4)))
@@ -2607,7 +2672,7 @@ ae_init()	/* check for init file and read it if it exists	*/
 				str1 = str2 = string;
 				while (*str2 != '\n')
 					str2++;
-				*str2 = (char) NULL;
+				*str2 = '\0';
 
 				if (unique_test(string, init_strings) != 1)
 					continue;
@@ -2634,7 +2699,7 @@ ae_init()	/* check for init file and read it if it exists	*/
 				else if (compare(str1, SPACING_str, FALSE))
 				{
 					str1 = next_word(str1);
-					if (*str1 != (char) NULL)
+					if (*str1 != '\0')
 						tab_spacing = atoi(str1);
 				}
 				else if (compare(str1, NOEXPAND_str,  FALSE))
@@ -2675,6 +2740,41 @@ ae_init()	/* check for init file and read it if it exists	*/
 					observ_margins = TRUE;
 				else if (compare(str1, NOMARGINS_str,  FALSE))
 					observ_margins = FALSE;
+				else if (compare(str1, ee_mode_str,  FALSE))
+				{
+					ee_mode_menu = TRUE;
+					main_menu[0].item_string = ee_mode_main_menu_strings[0];
+					main_menu[1].item_string = ee_mode_main_menu_strings[1];
+					main_menu[2].item_string = ee_mode_main_menu_strings[2];
+					main_menu[3].item_string = ee_mode_main_menu_strings[3];
+					main_menu[4].item_string = ee_mode_main_menu_strings[4];
+					main_menu[5].item_string = ee_mode_main_menu_strings[5];
+					main_menu[6].item_string = ee_mode_main_menu_strings[6];
+					main_menu[7].item_string = ee_mode_main_menu_strings[7];
+					main_menu[8].item_string = ee_mode_main_menu_strings[8];
+					main_menu[3].procedure = menu_op;
+					main_menu[3].ptr_argument = file_menu;
+					main_menu[4].procedure = NULL;
+					main_menu[4].ptr_argument = NULL;
+					main_menu[4].iprocedure = NULL;
+					main_menu[4].nprocedure = redraw;
+					main_menu[5].procedure = NULL;
+					main_menu[5].ptr_argument = NULL;
+					main_menu[5].iprocedure = NULL;
+					main_menu[5].nprocedure = modes_op;
+					main_menu[6].procedure = menu_op;
+					main_menu[6].ptr_argument = search_menu;
+					main_menu[6].iprocedure = NULL;
+					main_menu[6].nprocedure = NULL;
+					main_menu[7].procedure = menu_op;
+					main_menu[7].ptr_argument = misc_menu;
+					main_menu[7].iprocedure = NULL;
+					main_menu[7].nprocedure = NULL;
+					main_menu[8].procedure = menu_op;
+					main_menu[8].ptr_argument = edit_menu;
+					main_menu[8].iprocedure = NULL;
+					main_menu[8].nprocedure = NULL;
+				}
 				else if ((compare(str1, LEFTMARGIN_str,  FALSE)) || (compare(str1, RIGHTMARGIN_str,  FALSE)))
 				{
 					tmp = next_word(str1);
@@ -2701,7 +2801,7 @@ ae_init()	/* check for init file and read it if it exists	*/
 				{
 #ifndef XAE
 					str1 = next_word(str1);
-					if (*str1 != (char) NULL)
+					if (*str1 != '\0')
 						echo_string(str1);
 #endif
 				}
@@ -2725,9 +2825,9 @@ ae_init()	/* check for init file and read it if it exists	*/
 					tmp = str1;
 					while ((*tmp != ' ') && 
 					       (*tmp != '\t') && 
-					       (*tmp != (char) NULL))
+					       (*tmp != '\0'))
 						tmp++;
-					*tmp = (char) NULL;
+					*tmp = '\0';
 					journal_dir = resolve_name(str1);
 					if (str1 == journal_dir)
 					{
@@ -2755,9 +2855,9 @@ ae_init()	/* check for init file and read it if it exists	*/
 					tmp = str1;
 					while ((*tmp != ' ') && 
 					       (*tmp != '\t') && 
-					       (*tmp != (char) NULL))
+					       (*tmp != '\0'))
 						tmp++;
-					*tmp = (char) NULL;
+					*tmp = '\0';
 					ae_help_file = resolve_name(str1);
 					if (str1 == ae_help_file)
 					{
@@ -2774,6 +2874,5 @@ ae_init()	/* check for init file and read it if it exists	*/
 		}
 	}
 	free(string);
-	free(home);
 }
 

@@ -1,9 +1,9 @@
 /*
  |
  |	Handle file operations for aee.
- |	$Header: /home/hugh/sources/aee/RCS/file.c,v 1.19 1999/01/31 04:28:43 hugh Exp $
+ |	$Header: /home/hugh/sources/aee/RCS/file.c,v 1.34 2010/07/18 21:53:24 hugh Exp hugh $
  |
- |	Copyright (c) 1986 - 1988, 1991 - 1996 Hugh Mahon.
+ |	Copyright (c) 1986 - 1988, 1991 - 1996, 2001, 2009, 2010 Hugh Mahon.
  |
  */
 
@@ -15,6 +15,25 @@
 
 struct menu_entries file_error_menu[] = {
 	{"", NULL, NULL, NULL, NULL, MENU_WARN}, 
+	{NULL, NULL, NULL, NULL, NULL, -1}, 
+	{NULL, NULL, NULL, NULL, NULL, -1}, 
+	{NULL, NULL, NULL, NULL, NULL, -1}
+	};
+
+char *file_being_edited_msg;
+
+struct menu_entries file_being_edited_menu[] = {
+	{"", NULL, NULL, NULL, NULL, MENU_WARN}, 
+	{NULL, NULL, NULL, NULL, NULL, -1}, 
+	{NULL, NULL, NULL, NULL, NULL, -1}, 
+	{NULL, NULL, NULL, NULL, NULL, -1}
+	};
+
+char *file_modified_msg;
+
+struct menu_entries file_modified_menu[] = {
+	{"", NULL, NULL, NULL, NULL, MENU_WARN}, 
+	{NULL, NULL, NULL, NULL, NULL, -1}, 
 	{NULL, NULL, NULL, NULL, NULL, -1}, 
 	{NULL, NULL, NULL, NULL, NULL, -1}, 
 	{NULL, NULL, NULL, NULL, NULL, -1}
@@ -39,6 +58,20 @@ show_pwd()
 		wprintw(com_win, "%s", pwd_err_msg);
 }
 
+/*
+ | get_full_path returns the full directory path for a file
+ | If both 'path' and 'orig_path' are NULL then the current directory
+ | is returned.
+ | If orig_path is not NULL and path does not start with '/', then 
+ | orig_path is prefixed to 'path'.
+ |
+ | In order to get the 'canonical' path, that is, without any '..' in 
+ | the path name, once the path is created by concatenating orig_path 
+ | and path, a chdir() is made to the path, the current directory 
+ | obtained, then a chdir back to the directory in which the editor 
+ | was when get_full_path was called.
+ */
+
 char *
 get_full_path(path, orig_path)
 char *path;
@@ -46,9 +79,12 @@ char *orig_path;
 {
 	char *buff = path;
 	char long_buffer[1024];
+	char curr_path[1024];
+	char base_name[256];
+	char *tmp;
+	char *tmp2;
+	char *tmp3;
 
-	if ((path == NULL) || (*path != '/'))	/* a '/' indicates an absolute path */
-	{
 		if (orig_path != NULL)
 		{
 			strcpy(long_buffer, orig_path);
@@ -63,13 +99,33 @@ char *orig_path;
 			strcpy(buff, long_buffer);
 			if (path != NULL)
 			{
-				strcat(buff, "/");
-				strcat(buff, path);
+				tmp = getcwd(curr_path, 1024);
+
+				if (*path != '/')	/* a '/' indicates an absolute path */
+				{
+					strcat(buff, "/");
+					strcat(buff, path);
+				}
+				else 
+					strcpy(buff, path);
+					
+				tmp2 = ae_dirname(buff);
+				if (tmp2 != (char *)NULL)
+				{
+					strcpy(base_name, ae_basename(buff));
+					chdir(tmp2);
+					tmp3 = getcwd(long_buffer, 1024);
+					chdir(tmp);
+					free(tmp2);
+					strcpy(buff, long_buffer);
+					strcat(buff, "/");
+					strcat(buff, base_name);
+				}
 			}
 		}
 		else
 			change_dir_allowed = FALSE;
-	}
+
 	return(buff);
 }
 
@@ -81,7 +137,7 @@ char *name;
 
 	buff = base = name;
 
-	while (*buff != (char) NULL)
+	while (*buff != '\0')
 	{
 		if (*buff == '/')
 			base = ++buff;
@@ -102,7 +158,7 @@ char *path;
 	{
 		strcpy(buffer, path);
 		tmp = strrchr(buffer, '/');
-		*tmp = (char) NULL;
+		*tmp = '\0';
 		tmp = (char *) malloc(strlen(buffer) + 1);
 		strcpy(tmp, buffer);
 	}
@@ -173,7 +229,7 @@ char *string;
 		return(FALSE);
 	}
 
-	if ((string != NULL) && (*string != (char)NULL))
+	if ((string != NULL) && (*string != '\0'))
 	{
 		short_name = ae_basename(string);
 		do
@@ -216,7 +272,7 @@ char *string;
 
 	chng_buf(short_name);
 	curr_buff->edit_buffer = TRUE;
-	if (*string != (char)NULL)
+	if (*string != '\0')
 		tmp_file = strdup(string);
 	else
 		tmp_file = "";
@@ -320,7 +376,7 @@ recover_op()
 			(counter <= list_count); 
 				list_tmp = list_tmp->next, counter++)
 		{
-			recover_tmp[counter].item_string = (list_tmp->file_name != NULL) ? list_tmp->file_name : no_file_name_string ;
+			recover_tmp[counter].item_string = (list_tmp->file_name != NULL) ? list_tmp->file_name : ae_basename(list_tmp->journal_name) ;
 			recover_tmp[counter].procedure = NULL;
 			recover_tmp[counter].ptr_argument = NULL;
 			recover_tmp[counter].iprocedure = NULL;
@@ -380,7 +436,7 @@ recover_op()
 	if ((curr_buff->changed == FALSE) && 
 	    (curr_buff->first_line->next_line == NULL) &&
 	    (curr_buff->first_line->line_length == 1) &&
-	    (*curr_buff->full_name == (char)NULL))
+	    (*curr_buff->full_name == '\0'))
 	{
 		local_copy.journalling = curr_buff->journalling;
 		local_copy.journ_fd = curr_buff->journ_fd;
@@ -444,7 +500,7 @@ recover_op()
 		wprintw(com_win, rcvr_op_comp_msg);
 		wrefresh(com_win);
 #ifdef XAE
-		if (curr_buff->main_buffer)
+		if ((curr_buff->main_buffer) && (curr_buff->file_name != NULL))
 			set_window_name(curr_buff->file_name);
 #endif /* XAE */
 
@@ -461,6 +517,7 @@ check_fp()	/* open or close files according to flags recv_file,
 	char *buff;
 	int line_num;
 	char buffer[512];
+	int value;
 
 	clr_cmd_line = TRUE;
 
@@ -497,6 +554,7 @@ check_fp()	/* open or close files according to flags recv_file,
 			wclrtoeol(com_win);
 			wprintw(com_win, bad_rcvr_msg);
 			wrefresh(com_win);
+			journ_on = FALSE;
 		}
 		else
 		{
@@ -530,13 +588,21 @@ check_fp()	/* open or close files according to flags recv_file,
 		tmp_line = curr_buff->curr_line;
 		if (input_file)		/* get file on command line	*/
 		{
+			/*
+			 |	We want to do a few things here.  First, get 
+			 |	the path of the file we're editing. Second, 
+			 |	find out if we are already editing the file
+			 |	(compare with files listed in ~/.aeeinfo).  
+			 |	Third get the journal file name.  Fourth, 
+			 |	open the journal file for writing.
+			 */
 			buff = short_file_name = in_file_name = tmp_file;
 
 			if (curr_buff->orig_dir == NULL)
 				curr_buff->orig_dir = 
 						get_full_path(NULL, NULL);
 
-			if (*buff != (char)NULL)
+			if (*buff != '\0')
 			{
 				tmp_file = in_file_name = 
 				get_full_path(in_file_name, curr_buff->orig_dir);
@@ -553,6 +619,59 @@ check_fp()	/* open or close files according to flags recv_file,
 
 			if (journ_on)
 			{
+				struct journal_db *journal_list;
+				struct journal_db *list_tmp;
+				int match_found = FALSE;
+
+				journal_list = read_journal_db();
+				unlock_journal_fd();
+
+				for (list_tmp = journal_list; 
+				      (!match_found) && (list_tmp != NULL);
+					list_tmp = list_tmp->next)
+				{
+					/*
+					 |	comparing the basename, which 
+					 |	may prove to be an erroneous 
+					 |	match, but more complete match 
+					 |	would be a lot more work
+					 */
+					
+					if (list_tmp->file_name != NULL)
+					{
+						match_found = !strcmp(in_file_name, list_tmp->file_name);
+					}
+				}
+
+				/*
+				 |	free the memory allocated for the list
+				 */
+				list_tmp = journal_list;
+				while (list_tmp != NULL)
+				{
+					journal_list = journal_list->next;
+					free (list_tmp);
+					list_tmp = journal_list;
+				}
+
+				if (match_found)
+				{
+					sprintf(buffer, file_being_edited_msg, short_file_name);
+					file_being_edited_menu[0].item_string = buffer;
+					match_found = menu_op(file_being_edited_menu);
+					if (match_found == 1)
+					{
+						if (curr_buff->main_buffer)
+							quit("");
+						else
+						{
+							recv_file = FALSE;
+							input_file = FALSE;
+							return(FALSE);
+						}
+					}
+				}
+
 				curr_buff->journalling = TRUE;
 				journal_name(curr_buff, in_file_name);
 				open_journal_for_write(curr_buff);
@@ -562,7 +681,7 @@ check_fp()	/* open or close files according to flags recv_file,
 				(curr_buff->file_name != NULL))
 				set_window_name(curr_buff->file_name);
 #endif /* XAE */
-			if (*buff == (char)NULL)
+			if (*buff == '\0')
 			{
 				wmove(com_win,0,0);
 				wclrtoeol(com_win);
@@ -665,6 +784,12 @@ check_fp()	/* open or close files according to flags recv_file,
 					line_num = 0;
 					start_at_line = NULL;
 				}
+				value = stat(tmp_file, &curr_buff->fileinfo);
+				if (value == -1)
+				{
+					curr_buff->fileinfo.st_mtime = 0;
+					curr_buff->fileinfo.st_size = 0;
+				}
 				wrefresh(com_win);
 				input_file = FALSE;
 			}
@@ -726,7 +851,7 @@ char *file_name;
 		can_read = TRUE;  /* if set file has at least 1 character   */
 		get_line(length, in_string, &append);
 	}
-	if ((can_read) && (curr_buff->curr_line->line_length == 1))
+	if ((can_read) && (curr_buff->curr_line->line_length == 1)) 
 	{
 		temp_line = curr_buff->curr_line->prev_line;
 		temp_line->next_line = curr_buff->curr_line->next_line;
@@ -783,43 +908,37 @@ int *append;	/* TRUE if must append more text to end of current line	*/
 		str1 = str2;
 		char_count = 1;
 		/* find end of line	*/
-		if (last_char_cr)
+		if (!last_char_cr)
 		{
-			last_char_cr = FALSE;
-			if (*str2 == '\n')
+			if (text_only)
 			{
-				str1++;
-				str2++;
-				num++;
-			}
-				
-		}
-		if (text_only)
-		{
-			while ((*str2 != '\n') && (num < length))
-			{
-				if (((*str2 == '\r') && (*(str2 + 1) == '\n')) 
-				|| ((*str2 == '\r') && ((num + 1) == length)))
+				while ((*str2 != '\n') && (num < length))
 				{
-					curr_buff->dos_file = TRUE;
-					if ((num + 1) == length)
-						last_char_cr = TRUE;
+					if (((*str2 == '\r') && (*(str2 + 1) == '\n')) 
+					|| ((*str2 == '\r') && ((num + 1) == length)))
+					{
+						curr_buff->dos_file = TRUE;
+						if ((num + 1) == length)
+							last_char_cr = TRUE;
+					}
+					else
+						char_count++;
+					str2++;
+					num++;
 				}
-				else
+			}
+			else
+			{
+				while ((*str2 != '\n') && (num < length))
+				{
 					char_count++;
-				str2++;
-				num++;
+					str2++;
+					num++;
+				}
 			}
 		}
 		else
-		{
-			while ((*str2 != '\n') && (num < length))
-			{
-				char_count++;
-				str2++;
-				num++;
-			}
-		}
+			last_char_cr = FALSE;
 		if (!(*append))	/* if not append to current line, insert new one */
 		{
 			tline = txtalloc();	/* allocate data structure for next line */
@@ -849,7 +968,7 @@ int *append;	/* TRUE if must append more text to end of current line	*/
 		if (((*str2 == '\n') || ((num == length) && (num < 512))) && 
 			(curr_buff->journalling))
 			write_journal(curr_buff, curr_buff->curr_line);
-		*curr_buff->pointer = (char) NULL;
+		*curr_buff->pointer = '\0';
 		*append = FALSE;
 		curr_buff->curr_line->vert_len = (scanline(curr_buff->curr_line, curr_buff->curr_line->line_length) / COLS) + 1;
 		if ((num == length) && (*str2 != '\n'))
@@ -864,9 +983,9 @@ char * string, *substring;
 {
 	char *full, *sub;
 
-	for (sub = substring; (sub != NULL) && (*sub != (char)NULL); sub++)
+	for (sub = substring; (sub != NULL) && (*sub != '\0'); sub++)
 	{
-		for (full = string; (full != NULL) && (*full != (char)NULL); 
+		for (full = string; (full != NULL) && (*full != '\0'); 
 				full++)
 		{
 			if (*sub == *full)
@@ -913,7 +1032,7 @@ char *name;
 			slash = strchr(name_buffer, '/');
 			if (slash == NULL) 
 				return(name_buffer);
-			*slash = (char) NULL;
+			*slash = '\0';
 			user = (struct passwd *) getpwnam((name_buffer + 1));
 			*slash = '/';
 		}
@@ -933,10 +1052,10 @@ char *name;
 		tmp = buffer;
 		index = 0;
 		
-		while ((*tmp != (char) NULL) && (index < 1024))
+		while ((*tmp != '\0') && (index < 1024))
 		{
 
-			while ((*tmp != (char) NULL) && (*tmp != '$') && 
+			while ((*tmp != '\0') && (*tmp != '$') && 
 				(index < 1024))
 			{
 				long_buffer[index] = *tmp;
@@ -952,7 +1071,7 @@ char *name;
 				if (*tmp == '{') /* } */	/* bracketed variable name */
 				{
 					tmp++;				/* { */
-					while ((*tmp != (char) NULL) && 
+					while ((*tmp != '\0') && 
 						(*tmp != '}') && 
 						(counter < 128))
 					{
@@ -965,7 +1084,7 @@ char *name;
 				}
 				else
 				{
-					while ((*tmp != (char) NULL) && 
+					while ((*tmp != '\0') && 
 					       (*tmp != '/') && 
 					       (*tmp != '$') && 
 					       (counter < 128))
@@ -975,7 +1094,7 @@ char *name;
 						tmp++;
 					}
 				}
-				short_buffer[counter] = (char) NULL;
+				short_buffer[counter] = '\0';
 				if ((slash = getenv(short_buffer)) != NULL)
 				{
 					offset = strlen(slash);
@@ -998,7 +1117,7 @@ char *name;
 		if (index == 1024)
 			return(buffer);
 		else
-			long_buffer[index] = (char) NULL;
+			long_buffer[index] = '\0';
 
 		if (name_buffer != buffer)
 			free(buffer);
@@ -1021,11 +1140,16 @@ char *file_name;
 	int write_flag;
 	int can_write;
 	int write_ret = 0;
+	int retval = 0;
+	int value;
+	struct stat filestat;
+	char *short_name;
+	char buffer[1024];
 
 	clr_cmd_line = TRUE;
 	charac = lines = 0;
 	aee_write_status = FALSE;
-	if (strcmp(curr_buff->full_name, file_name))
+	if ((curr_buff->full_name == NULL) || (strcmp(curr_buff->full_name, file_name)))
 	{
 		wmove(com_win, 0, 0);
 		wclrtoeol(com_win);
@@ -1041,7 +1165,7 @@ char *file_name;
 			{
 				tmp_point = get_string(file_exists_prompt, TRUE);
 				if ((toupper(*tmp_point) == toupper(*no_char)) 
-					|| (*tmp_point == (char) NULL))
+					|| (*tmp_point == '\0'))
 					write_flag = FALSE;
 				else
 					write_flag = TRUE;
@@ -1054,7 +1178,7 @@ char *file_name;
 		{
 			tmp_point = get_string(file_exists_prompt, TRUE);
 			if ((toupper(*tmp_point) == toupper(*no_char)) 
-				|| (*tmp_point == (char) NULL))
+				|| (*tmp_point == '\0'))
 				write_flag = FALSE;
 			else
 				write_flag = TRUE;
@@ -1064,6 +1188,33 @@ char *file_name;
 	}
 	else
 	{
+		if (!strcmp(curr_buff->full_name, file_name))
+		{
+			value = stat(file_name, &filestat);
+			if ((value == 0) && 
+			    ((filestat.st_mtime != curr_buff->fileinfo.st_mtime) || 
+			     (filestat.st_size != curr_buff->fileinfo.st_size)))
+			{
+			/*
+			 |	notify user that the file has changed and ask 
+			 |	whether to continue file write or not
+			 */
+				short_name = ae_basename(file_name);
+				sprintf(buffer, file_modified_msg, short_name);
+				file_modified_menu[0].item_string = buffer;
+				value = menu_op(file_modified_menu);
+				if (value == 1)
+				{
+					return(FALSE);
+				}
+				else if (value == 3)
+				{
+					sprintf(buffer, "><file-diffs!diff %s -", file_name);
+					command(buffer);
+					return(FALSE);
+				}
+			}
+		}
 		wmove(com_win,0,0);
 		wclrtoeol(com_win);
 		can_write = access(file_name, 2);
@@ -1118,10 +1269,18 @@ char *file_name;
 				out_line = out_line->next_line;
 				if ((text_only) && (curr_buff->dos_file))
 					putc(cr, write_fp);
-				putc(lf, write_fp);
+				write_ret = putc(lf, write_fp);
 				lines++;
 			}
-			fclose(write_fp);
+			retval = fclose(write_fp);
+			if (retval != 0)
+			{
+				wstandout(com_win);
+				wprintw(com_win, write_err_msg);
+				wstandend(com_win);
+				wrefresh(com_win);
+				return(FALSE);
+			}
 			wmove(com_win,0,0);
 			wclrtoeol(com_win);
 			wprintw(com_win, file_written_msg, file_name,lines,charac);
@@ -1133,6 +1292,12 @@ char *file_name;
 				
 			}
 			wrefresh(com_win);
+			value = stat(file_name, &curr_buff->fileinfo);
+			if (value == -1)
+			{
+				curr_buff->fileinfo.st_mtime = 0;
+				curr_buff->fileinfo.st_size = 0;
+			}
 			aee_write_status = TRUE;
 			return(TRUE);
 		}
@@ -1145,4 +1310,45 @@ int
 file_write_success()
 {
 	return (aee_write_status);
+}
+
+void 
+diff_file()
+{
+	char tmp_buff[1024];
+	char buff_name[512];
+	struct bufr *tmp;
+	char *curr_name;
+
+	/* 
+	 |  want to do a diff of the current edit buffer with the 
+	 |  file it is associated with
+	 |
+	 |  another way to deal with buffer names is to use the function
+	 |  buff_name_generator()
+	 */
+	if ((curr_buff->file_name != (char *)NULL) && (*curr_buff->file_name != '\0'))
+	{
+		curr_name = curr_buff->name;
+		sprintf(buff_name, "%s-diffs", curr_buff->file_name);
+		tmp = first_buff;
+		while ((tmp != NULL) && (strcmp(tmp->name, buff_name)))
+			tmp = tmp->next_buff;
+		
+		if (tmp != NULL)
+		{
+			chng_buf(buff_name);
+			del_buf();
+			chng_buf(curr_name);
+		}
+
+		sprintf(tmp_buff, "><%s!diff %s -", buff_name, curr_buff->full_name);
+		command(tmp_buff);
+	}
+	else
+	{
+		wmove(com_win, 0, 0);
+		werase(com_win);
+		wprintw(com_win, no_file_string);
+	}
 }

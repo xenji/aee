@@ -1,10 +1,10 @@
 /*
-	$Header: /home/hugh/sources/aee/RCS/Xcurse.c,v 1.36 1998/12/29 05:27:05 hugh Exp hugh $
+	$Header: /home/hugh/sources/aee/RCS/Xcurse.c,v 1.41 2010/07/18 00:52:24 hugh Exp hugh $
 */
 
-char *XCURSE_copyright_notice = "Copyright (c) 1987, 1988, 1991, 1992, 1994, 1995, 1996, 1998 Hugh Mahon.";
+char *XCURSE_copyright_notice = "Copyright (c) 1987, 1988, 1991, 1992, 1994, 1995, 1996, 1998, 1999, 2001, 2004, 2009, 2010 Hugh Mahon.";
 
-char *XCURSE_version_string = "@(#) Xcurse.c $Revision: 1.36 $";
+char *XCURSE_version_string = "@(#) Xcurse.c $Revision: 1.41 $";
 
 #include "Xcurse.h"
 #include <X11/Xutil.h>
@@ -49,8 +49,8 @@ char *new_curse = "February 1988";
 int STAND = FALSE;	/* is standout mode activated?			*/
 int Curr_x;		/* current x position on screen			*/
 int Curr_y;		/* current y position on the screen		*/
-int LINES;
-int COLS;
+unsigned int LINES;
+unsigned int COLS;
 int initialized = FALSE;	/* tells whether new_curse is initialized	*/
 int Repaint_screen;	/* if an operation to change screen impossible, repaint screen	*/
 int Num_bits;	/* number of bits per character	*/
@@ -78,7 +78,7 @@ int Key_vals[] = {
 	KEY_F(8), KEY_F(9), KEY_F(10), KEY_F(11), KEY_F(12), 
 	KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT, KEY_NPAGE, KEY_PPAGE,
 	KEY_DC, KEY_DL, KEY_IL, KEY_IC, KEY_EOL, KEY_IC, KEY_DC, KEY_BACKSPACE,
-	KEY_HOME
+	KEY_HOME, 255
 };
 
 /* the following data should go into a data structure in a future version */
@@ -116,7 +116,7 @@ int xtemp, ytemp;
 
 #define icon_width 48
 #define icon_height 48
-static char icon_bits[] = {
+static unsigned char icon_bits[] = {
    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -322,13 +322,13 @@ char *argv[];
 			temp_names->next_name = NULL;
 			extens = temp_names->name = xalloc(strlen(buff) + 1);
 
-			while (*buff != (char) NULL)
+			while (*buff != '\0')
 			{
 				*extens = *buff;
 				buff++;
 				extens++;
 			}
-			*extens = (char) NULL;
+			*extens = '\0';
 			input_file = TRUE;
 			recv_file = TRUE;
 		}
@@ -362,6 +362,15 @@ get_defaults()
 	geometry = XGetDefault(dp, "xae", "geometry");
 	foreground = XGetDefault(dp, "xae", "foreground");
 	background = XGetDefault(dp, "xae", "background");
+	temp = getenv("XAEBACKGROUND");
+	if ((temp != NULL) && (*temp != '\0'))
+		background = temp;
+	temp = getenv("XAEFOREGROUND");
+	if ((temp != NULL) && (*temp != '\0'))
+		foreground = temp;
+	temp = getenv("XAEGEOMETRY");
+	if ((temp != NULL) && (*temp != '\0'))
+		geometry = temp;
 	font_name = XGetDefault(dp, "xae", "font");
 	temp = XGetDefault(dp, "xae", "ReverseVideo");
 	if ((temp != NULL) && (!strcmp(temp, "on")))
@@ -475,7 +484,7 @@ int cols, lines;
  |	Try to set up some default values and icon information
  */
 
-	pixmap = XCreateBitmapFromData(dp, wid, icon_bits, icon_width, icon_height);
+	pixmap = XCreateBitmapFromData(dp, wid, (char *)icon_bits, icon_width, icon_height);
 	xsh.height = fontheight * LINES;
 	xsh.width = fontwidth * COLS;
 	xsh.base_height = xsh.height;
@@ -566,13 +575,13 @@ int columns;
 	for (i = 0; i < columns; i++)
 	{
 		tmp->row[i] = ' ';
-		tmp->attributes[i] = (char) NULL;
+		tmp->attributes[i] = '\0';
 	}
 	tmp->scroll = tmp->changed = FALSE;
-	tmp->row[0] = (char) NULL;
-	tmp->attributes[0] = (char) NULL;
-	tmp->row[columns] = (char) NULL;
-	tmp->attributes[columns] = (char) NULL;
+	tmp->row[0] = '\0';
+	tmp->attributes[0] = '\0';
+	tmp->row[columns] = '\0';
+	tmp->attributes[columns] = '\0';
 	tmp->last_char = 0;
 	return(tmp);
 }
@@ -640,12 +649,12 @@ int cols;
 		for (j = line->last_char; j < column; j++)
 		{
 			line->row[j] = ' ';
-			line->attributes[j] = (char) NULL;
+			line->attributes[j] = '\0';
 		}
 	}
 	line->last_char = column;
-	line->row[column] = (char) NULL;
-	line->attributes[column] = (char) NULL;
+	line->row[column] = '\0';
+	line->attributes[column] = '\0';
 	line->changed = TRUE;
 }
 
@@ -751,14 +760,14 @@ WINDOW *window;
 				  	virt_col++, user_col++)
 			{
 				virtual_line->row[virt_col] = ' ';
-				virtual_line->attributes[virt_col] = (char) NULL;
+				virtual_line->attributes[virt_col] = '\0';
 			}
 		}
 		if (virtual_scr->Num_cols != window->Num_cols)
 		{
 			if (virtual_line->last_char < (user_line->last_char + window->SC))
 			{
-				if (virtual_line->row[virtual_line->last_char] == (char) NULL)
+				if (virtual_line->row[virtual_line->last_char] == '\0')
 					virtual_line->row[virtual_line->last_char] = ' ';
 				virtual_line->last_char = 
 					min(virtual_scr->Num_cols, 
@@ -767,7 +776,7 @@ WINDOW *window;
 		}
 		else
 			virtual_line->last_char = user_line->last_char;
-		virtual_line->row[virtual_line->last_char] = (char) NULL;
+		virtual_line->row[virtual_line->last_char] = '\0';
 		virtual_line->changed = user_line->changed;
 		virtual_line = virtual_line->next_screen;
 		user_line = user_line->next_screen;
@@ -866,10 +875,10 @@ int c;
 					for (j = tmpline->last_char; j < column; j++)
 					{
 						tmpline->row[j] = ' ';
-						tmpline->attributes[j] = (char) NULL;
+						tmpline->attributes[j] = '\0';
 					}
-				tmpline->row[column + 1] = (char) NULL;
-				tmpline->attributes[column + 1] = (char) NULL;
+				tmpline->row[column + 1] = '\0';
+				tmpline->attributes[column + 1] = '\0';
 				tmpline->last_char = column + 1;
 			}
 		}
@@ -1043,7 +1052,7 @@ char *string;
 {
 	char *wstring;
 
-	for (wstring = string; *wstring != (char) NULL; wstring++)
+	for (wstring = string; *wstring != '\0'; wstring++)
 		waddch(window, *wstring);
 }
 
@@ -1197,7 +1206,7 @@ wprintw(WINDOW *window, const char *format, ...)
 #endif /* __STDC__ */
 
 	fpoint = (char *) format;
-	while (*fpoint != (char) NULL)
+	while (*fpoint != '\0')
 	{
 		if (*fpoint == '%')
 		{
@@ -1275,12 +1284,12 @@ struct _line *line2;
 	att1 = line1->attributes;
 	att2 = line2->attributes;
 	i = 0;
-	while ((c1[i] != (char) NULL) && (c2[i] != (char) NULL) && (c1[i] == c2[i]) && (att1[i] == att2[i]))
+	while ((c1[i] != '\0') && (c2[i] != '\0') && (c1[i] == c2[i]) && (att1[i] == att2[i]))
 		i++;
 	count1 = i + 1;
-	if ((count1 == 1) && (c1[i] == (char) NULL) && (c2[i] == (char) NULL))
+	if ((count1 == 1) && (c1[i] == '\0') && (c2[i] == '\0'))
 		count1 = 0;			/* both lines blank	*/
-	else if ((c1[i] == (char) NULL) && (c2[i] == (char) NULL))
+	else if ((c1[i] == '\0') && (c2[i] == '\0'))
 		count1 = -1;			/* equal		*/
 	else
 		count1 = 1;			/* lines unequal	*/
@@ -1407,9 +1416,9 @@ int row, column;
 	for (x = column; x<window->Num_cols; x++)
 	{
 		tmp1->row[x] = ' ';
-		tmp1->attributes[x] = (char) NULL;
+		tmp1->attributes[x] = '\0';
 	}
-	tmp1->row[column] = (char) NULL;
+	tmp1->row[column] = '\0';
 	tmp1->last_char = column;
 	if (column <= tmp1->last_char)
 	{
@@ -1457,7 +1466,7 @@ doupdate()
 		for (i = 0, curr = curscr->first_line; i < curscr->Num_lines; i++, curr = curr->next_screen)
 		{
 			Position(curscr, i, 0);
-			for (j = 0; (curr->row[j] != (char) NULL) && (j < curscr->Num_cols); j++)
+			for (j = 0; (curr->row[j] != '\0') && (j < curscr->Num_cols); j++)
 			{
 				Char_out(curr->row[j], curr->attributes[j], curr->row, curr->attributes, j);
 			}
@@ -1634,20 +1643,20 @@ doupdate()
 			cur_att = curr->attributes;
 			vrt_lin = virt->row;
 			vrt_att = virt->attributes;
-			while ((j < window->Num_cols) && (vrt_lin[j] != (char) NULL))
+			while ((j < window->Num_cols) && (vrt_lin[j] != '\0'))
 			{
-				while ((cur_lin[j] == vrt_lin[j]) && (cur_att[j] == vrt_att[j]) && (j < window->Num_cols) && (vrt_lin[j] != (char) NULL))
+				while ((cur_lin[j] == vrt_lin[j]) && (cur_att[j] == vrt_att[j]) && (j < window->Num_cols) && (vrt_lin[j] != '\0'))
 					j++;
 				begin_old = j;
 				begin_new = j;
-				if ((j < window->Num_cols) && (vrt_lin[j] != (char) NULL))
+				if ((j < window->Num_cols) && (vrt_lin[j] != '\0'))
 				{
 					Position(window, from_top, begin_old);
-					for (j = begin_old; (vrt_lin[j] != (char) NULL) && (j < window->Num_cols); j++)
+					for (j = begin_old; (vrt_lin[j] != '\0') && (j < window->Num_cols); j++)
 						Char_out(vrt_lin[j], vrt_att[j], cur_lin, cur_att, j);
 				}
 			}
-			if ((vrt_lin[j] == (char) NULL) && (cur_lin[j] != (char) NULL))
+			if ((vrt_lin[j] == '\0') && (cur_lin[j] != '\0'))
 /*			if (j < curr->last_char) */
 			{
 				Position(window, from_top, j);
@@ -1782,7 +1791,7 @@ int visible;
 	}
 	output_char = tmp1->row[Curr_x];
 	reverse = (tmp1->attributes[last_col] & A_STANDOUT);
-	if (tmp1->row[Curr_x] == (char) NULL)
+	if (tmp1->row[Curr_x] == '\0')
 	{
 		output_char = ' ';
 		reverse = 0;

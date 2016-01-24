@@ -4,7 +4,7 @@
  |		This file contains the routines for handling the journal file
  |		for ae.
  |
- |	$Header: /home/hugh/sources/aee/RCS/journal.c,v 1.34 1998/11/08 23:30:37 hugh Exp $
+ |	$Header: /home/hugh/sources/aee/RCS/journal.c,v 1.41 2010/07/18 21:53:50 hugh Exp hugh $
  */
 
 /*
@@ -63,11 +63,11 @@
 
 /*
  |
- |	Copyright (c) 1994, 1995, 1996, 1998 Hugh Mahon.
+ |	Copyright (c) 1994, 1995, 1996, 1998, 2000, 2001, 2002, 2009, 2010 Hugh Mahon.
  |
  */
 
-char *jrn_vers_str = "@(#)                           journal.c $Revision: 1.34 $";
+char *jrn_vers_str = "@(#)                           journal.c $Revision: 1.41 $";
 
 #include "aee.h"
 
@@ -211,6 +211,15 @@ struct text *line;
 
 	ret_val = line->file_info.info_location = 
 					lseek(buffer->journ_fd, 0, SEEK_END);
+	if (ret_val == -1)
+	{
+		wmove(com_win, 0, 0);
+		wstandout(com_win);
+		wprintf(com_win, journal_err_str);
+		wstandend(com_win);
+		wrefresh(com_win);
+		return;
+	}
 
 	if (line->prev_line != NULL)
 	{
@@ -292,7 +301,8 @@ char *file_name;
 	struct text *line;
 	char temp;
 	char done = FALSE;
-	char name[1024];
+	char name[1024]; /* name of file stored in journal file */
+	ssize_t len = 0;
 
 	if ((buffer->journ_fd = open(file_name, O_RDONLY)) == -1)
 	{
@@ -300,6 +310,7 @@ char *file_name;
 		 |	Unable to open journal file.
 		 */
 
+		buffer->journ_fd = NULL;
 		return(1);
 	}
 
@@ -311,7 +322,15 @@ char *file_name;
 
 	do
 	{
-		read(buffer->journ_fd, &temp, 1);
+		len = read(buffer->journ_fd, &temp, 1);
+		if (len == 0)
+		{
+			/*
+			 | we've got a zero length file, there's a problem
+			 */
+			buffer->journalling = FALSE;
+			return(1);
+		}
 		if ((counter < 1024) && (temp != '\n'))
 			name[counter] = temp;
 		counter++;
@@ -375,17 +394,15 @@ char *file_name;
 	 |	the journal file.
 	 */
 
-	if ((buffer->full_name == NULL) || (*buffer->full_name == (char) NULL))
+	if ((buffer->full_name == NULL) || (*buffer->full_name == '\0'))
 	{
-		buffer->full_name = (name[0] == (char) NULL) ? NULL : strdup(name);
-		if (buffer->full_name != NULL)
+		buffer->full_name = strdup(name);
+		if ((buffer->full_name != NULL) && (*buffer->full_name != '\0'))
 		{
 			buffer->file_name = ae_basename(buffer->full_name);
 			if (strcmp(main_buffer_name, buffer->name))
 				buffer->name = strdup(buffer->file_name);
 		}
-		else
-			buffer->file_name = NULL;
 	}
 
 	/*
@@ -515,7 +532,7 @@ read_journal_db()
 			tmp = next_word(tmp);
 			list->file_name = (char *) malloc(file_name_len + 1);
 			strncpy(list->file_name, tmp, file_name_len);
-			list->file_name[file_name_len] = (char)NULL;
+			list->file_name[file_name_len] = '\0';
 		}
 		else
 			list->file_name = NULL;
@@ -523,7 +540,7 @@ read_journal_db()
 		tmp = next_word(tmp);
 		list->journal_name = (char *) malloc(journ_name_len + 1);
 		strncpy(list->journal_name, tmp, journ_name_len);
-		list->journal_name[journ_name_len] = (char)NULL;
+		list->journal_name[journ_name_len] = '\0';
 	}
 	fclose(db_fp);
 	return(top_of_list);
@@ -547,16 +564,19 @@ struct journal_db *list;
 
 	for (tmp = list; (db_fp != NULL) && (tmp != NULL); tmp = tmp->next)
 	{
-		if (tmp->file_name != (char)NULL)
+		if (tmp->file_name != '\0')
 		{
-			fprintf(db_fp, "%d %d %s %s\n", strlen(tmp->file_name), 
-				strlen(tmp->journal_name), tmp->file_name, 
+			fprintf(db_fp, "%d %d %s %s\n", 
+				(int)strlen(tmp->file_name), 
+				(int)strlen(tmp->journal_name), 
+				tmp->file_name, 
 							tmp->journal_name);
 		}
 		else
 		{
 			fprintf(db_fp, "%d %d %s\n", 0, 
-				strlen(tmp->journal_name), tmp->journal_name);
+				(int)strlen(tmp->journal_name), 
+				tmp->journal_name);
 		}
 	}
 
@@ -601,7 +621,7 @@ struct bufr *buffer;
 	list->next = NULL;
 
 	list->journal_name = strdup(buffer->journal_file);
-	if (*buffer->full_name != (char)NULL)
+	if (*buffer->full_name != '\0')
 		list->file_name = strdup(buffer->full_name);
 	else
 		list->file_name = NULL;
@@ -642,7 +662,8 @@ struct bufr *buffer;
 	}
 	else
 	{
-		while (((list->next != NULL) && 
+		while (((list->next != NULL) && (buffer->journal_file != NULL) && 
+		      (buffer->full_name != NULL) &&
 		      (!((list->next->file_name != NULL) && 
 			    (!strcmp(buffer->full_name, list->next->file_name) 
 		 && !strcmp(buffer->journal_file, list->next->journal_name)))))
@@ -693,6 +714,9 @@ char *name;
 	struct stat buf;
 	int ret_val;
 
+	if ((name == (char *)NULL) || (*name == '\0'))
+		return(-1);
+
 	ret_val = stat(name, &buf);
 	if (ret_val == -1)
 	{
@@ -719,10 +743,25 @@ char *file_name;
 	char *temp, *buff, *name;
 	int count;
 
-	if (*file_name == (char)NULL)
-		file_name = "no_file_journal";
+	if (*file_name == '\0')
+	{
+		struct tm *time_info;
+		time_t t;
+		int ret_val;
 
-	if ((journal_dir != NULL) && (*journal_dir != (char) NULL))
+		/*
+		 |	create a file name based on the date, e.g., 
+		 |	950913221206.rv
+		 |	Not a guarantee of uniqueness, but certainly not 
+		 |	likely to be repeated.
+		 */
+		file_name = (char *)malloc(14);
+		t = time(NULL);
+		time_info = gmtime(&t);
+		ret_val = strftime(file_name, 13, "%y%m%d%H%M%S", time_info);
+	}
+
+	if ((journal_dir != NULL) && (*journal_dir != '\0'))
 	{
 		name = ae_basename(file_name);
 		buffer->journal_file = temp = 
@@ -749,7 +788,7 @@ char *file_name;
 	}
 	else
 	{
-		while(*temp != (char) NULL)
+		while(*temp != '\0')
 			temp++;
 	}
 
@@ -812,7 +851,7 @@ struct bufr *buffer;
 				&& (errno == EEXIST) && (counter <= 'z'))
 		{
 			buffer->journal_file[length] = counter;
-			buffer->journal_file[length + 1] = (char) NULL;
+			buffer->journal_file[length + 1] = '\0';
 			counter++;
 		}
 	}
@@ -821,12 +860,13 @@ struct bufr *buffer;
 	{
 		wprintw(com_win, cant_opn_rcvr_fil_msg);
 		buffer->journalling = FALSE;
+		buffer->journ_fd = NULL;
 		return;
 	}
 
 	add_to_journal_db(buffer);
 
-	if (*buffer->full_name != (char) NULL)
+	if (*buffer->full_name != '\0')
 	{
 		ret_val = write(buffer->journ_fd, buffer->full_name, 
 					strlen(buffer->full_name));

@@ -1,26 +1,28 @@
-DEFINES =	 -DCAP -DBSD_SELECT    
+DEFINES =	  -DBSD_SELECT   -DNCURSE 
 
-CFLAGS =	-DHAS_UNISTD  -DHAS_STDLIB -DHAS_CTYPE -DHAS_SYS_IOCTL -DHAS_SYS_WAIT  -s   -DSLCT_HDR
+CFLAGS =	-DHAS_UNISTD  -DHAS_STDLIB -DHAS_CTYPE -DHAS_SYS_IOCTL -DHAS_SYS_WAIT -DNO_CATGETS    -DSLCT_HDR 
 
 
-all :	curses
+all :	aee
+
+CC = gcc
 
 OBJS = aee.o control.o format.o localize.o srch_rep.o delete.o mark.o motion.o keys.o help.o windows.o journal.o file.o
 
 .c.o: 
-	cc $(DEFINES) -c $*.c $(CFLAGS)
+	$(CC) $(DEFINES) -c $*.c $(CFLAGS)
 
 curses :	$(OBJS)
-	cc -o aee $(OBJS) $(CFLAGS) -lcurses 
+	$(CC) -o aee $(OBJS) $(CFLAGS) -lcurses 
 
 aee :	$(OBJS) new_curse.o
-	cc -o aee $(OBJS) new_curse.o $(CFLAGS) 
+	$(CC) -o aee $(OBJS) new_curse.o $(CFLAGS) 
 
 new_curse.o :	new_curse.c new_curse.h
-	cc new_curse.c -c $(DEFINES) $(CFLAGS)
+	$(CC) new_curse.c -c $(DEFINES) $(CFLAGS)
 
 
-aee.o: aee.c aee.h new_curse.h 
+aee.o: aee.c aee.h new_curse.h aee_version.h
 control.o: control.c aee.h new_curse.h 
 delete.o: delete.c aee.h new_curse.h 
 format.o: format.c aee.h new_curse.h 

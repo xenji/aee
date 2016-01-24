@@ -1,7 +1,7 @@
 /*
  |	srch_rep.c
  |
- |	$Header: /home/hugh/sources/aee/RCS/srch_rep.c,v 1.7 1996/12/01 23:07:50 hugh Exp hugh $
+ |	$Header: /home/hugh/sources/aee/RCS/srch_rep.c,v 1.9 2009/03/12 02:57:14 hugh Exp hugh $
  */
 
 /*
@@ -42,7 +42,7 @@ int disp;		/* boolean for whether or not to display message */
 	else
 		direction = "u";
 	end_of_line = FALSE;
-	if ((srch_str == NULL) || (*srch_str == (char) NULL))
+	if ((srch_str == NULL) || (*srch_str == '\0'))
 		return(FALSE);
 	if ((move_cursor) && (disp))
 	{
@@ -87,7 +87,7 @@ int disp;		/* boolean for whether or not to display message */
 				if (case_sen)	/* if case sensitive	*/
 				{
 					srch_3 = srch_str;
-					while ((*srch_2 == *srch_3) && (*srch_3 != (char) NULL) && (iter2 < srch_line->line_length))
+					while ((*srch_2 == *srch_3) && (*srch_3 != '\0') && (iter2 < srch_line->line_length))
 					{
 						found = TRUE;
 						srch_2++;
@@ -98,7 +98,7 @@ int disp;		/* boolean for whether or not to display message */
 				else		/* if not case sensitive */
 				{
 					srch_3 = u_srch_str;
-					while ((toupper(*srch_2) == *srch_3) && (*srch_3 != (char) NULL) && (iter2 < srch_line->line_length))
+					while ((toupper(*srch_2) == *srch_3) && (*srch_3 != '\0') && (iter2 < srch_line->line_length))
 					{
 						found = TRUE;
 						srch_2++;
@@ -144,7 +144,7 @@ int disp;		/* boolean for whether or not to display message */
 							{
 								if (search(FALSE, srch_line, iter2, srch_2, (s_str_off+increment), TRUE, disp))
 								{
-									while (srch_3[s_str_off] != (char) NULL)
+									while (srch_3[s_str_off] != '\0')
 										s_str_off++;
 									found2 = TRUE;
 								}
@@ -156,7 +156,7 @@ int disp;		/* boolean for whether or not to display message */
 							else	/* if at end of line, increment srch_3 to exit do...while loop	*/
 								s_str_off++;
 						}
-						else if ((iter2 == srch_line->line_length) && ((srch_3[s_str_off+1] == '$') || (srch_3[s_str_off+1] == (char) NULL)))
+						else if ((iter2 == srch_line->line_length) && ((srch_3[s_str_off+1] == '$') || (srch_3[s_str_off+1] == '\0')))
 						{
 							s_str_off++;
 							found2 = TRUE;
@@ -173,7 +173,7 @@ int disp;		/* boolean for whether or not to display message */
 					else if (srch_3[s_str_off] == '[')
 					{
 						s_str_off++;
-						x = (char) NULL;
+						x = '\0';
 						if (srch_3[s_str_off] == '^')
 						{
 							x = '^';
@@ -182,7 +182,7 @@ int disp;		/* boolean for whether or not to display message */
 						else if (srch_3[s_str_off] == '\\')
 							s_str_off++;
 						found2 = FALSE;
-						while ((srch_3[s_str_off] != (char) NULL) && (srch_3[s_str_off] != ']') && (!found2))
+						while ((srch_3[s_str_off] != '\0') && (srch_3[s_str_off] != ']') && (!found2))
 						{
 							if (srch_3[s_str_off] == '\\')
 								s_str_off++;
@@ -225,13 +225,13 @@ int disp;		/* boolean for whether or not to display message */
 							if (iter2 <= srch_line->line_length)
 								srch_2++;
 						}
-						while ((srch_3[s_str_off] != ']') && (srch_3[s_str_off] != (char) NULL))
+						while ((srch_3[s_str_off] != ']') && (srch_3[s_str_off] != '\0'))
 						{
 							if (srch_3[s_str_off] == '\\')
 								s_str_off++;
 							s_str_off++;
 						}
-						if (srch_3[s_str_off] != (char) NULL)
+						if (srch_3[s_str_off] != '\0')
 							s_str_off++;
 					}
 					else
@@ -253,7 +253,7 @@ int disp;		/* boolean for whether or not to display message */
 						if (iter2 <= srch_line->line_length)
 							srch_2++;
 					}
-				} while ((srch_3[s_str_off] != (char) NULL) && (found2));
+				} while ((srch_3[s_str_off] != '\0') && (found2));
 				found = found2;
 			}
 			if (srch_short)
@@ -262,7 +262,7 @@ int disp;		/* boolean for whether or not to display message */
 					repl_length = (iter2 - iter) - 1;
 				return(found);
 			}
-			if (!((srch_3[s_str_off] == (char) NULL) && (found)))
+			if (!((srch_3[s_str_off] == '\0') && (found)))
 			{
 				s_str_off = 0;
 				found = FALSE;
@@ -322,6 +322,8 @@ int disp;		/* boolean for whether or not to display message */
 			{
 				wmove(com_win, 0, 0);
 				wclrtoeol(com_win);
+				clr_cmd_line = FALSE;
+				status_display();
 				wrefresh(com_win);
 			}
 			if (lines_moved != 0)
@@ -348,7 +350,7 @@ int disp;		/* boolean for whether or not to display message */
 			wclrtoeol(com_win);
 			wprintw(com_win, str_str);
 			iter2 = curr_buff->scr_horz;
-	 		for (srch_3 = srch_str; *srch_3 != (char) NULL; srch_3++)
+	 		for (srch_3 = srch_str; *srch_3 != '\0'; srch_3++)
 			{
 				if ((*srch_3 >= 32) && (*srch_3 < 127))
 				{
@@ -398,7 +400,7 @@ int flag;
 		copy_str(xsrch_string, tmp_srch);
 	}
 #endif	/* ifndef XAE	*/
-	if (*tmp_srch != (char) NULL)
+	if (*tmp_srch != '\0')
 	{
 		if (srch_str != NULL) 
 			free(srch_str);
@@ -406,13 +408,13 @@ int flag;
 		if (u_srch_str != NULL) 
 			free(u_srch_str);
 		srch_1 = u_srch_str = xalloc(strlen(srch_str) + 1);
-		while (*srch_3 != (char) NULL)		/* make upper case version of string */
+		while (*srch_3 != '\0')		/* make upper case version of string */
 		{
 			*srch_1 = toupper(*srch_3);
 			srch_1++;
 			srch_3++;
 		}
-		*srch_1 = (char) NULL;
+		*srch_1 = '\0';
 		if (strlen(srch_str) >= 1)
 			value = search(TRUE, curr_buff->curr_line, curr_buff->position, curr_buff->pointer, 0, FALSE, TRUE);
 	}
@@ -490,7 +492,7 @@ replace()		/* replace the given one string with another	*/
 			else
 				value = out_char(curr_buff->win, *curr_buff->pointer, curr_buff->scr_pos, curr_buff->scr_vert, 0);
 			if (((toupper(res) == toupper(*replace_r_char)) || 
-			      (go_on) || (res == (char) NULL)) && 
+			      (go_on) || (res == '\0')) && 
 			      (toupper(res) != toupper(*replace_skip_char)))
 			{
 				del_strg = del_string(repl_length - 1);
@@ -569,16 +571,16 @@ int flag;
 			*rp = '\33';
 			rp++;
 			copy_str(xold_string, rp);
-			while (*rp != (char) NULL)
+			while (*rp != '\0')
 				rp++;
 			*rp = '\33';
 			rp++;
 			copy_str(xnew_string, rp);
-			while (*rp != (char) NULL)
+			while (*rp != '\0')
 				rp++;
 			*rp = '\33';
 			rp++;
-			*rp = (char) NULL;
+			*rp = '\0';
 			rp = rparam;
 		}
 		else
@@ -586,22 +588,22 @@ int flag;
 	}
 #endif	/* ifndef XAE	*/
 	delimiter = *rp;
-	if (*rp != (char) NULL)
+	if (*rp != '\0')
 	{
 			++rp;
 		start = rp;
 		counter = 1;
-		while ((*rp != delimiter) && (*rp != (char) NULL))
+		while ((*rp != delimiter) && (*rp != '\0'))
 		{
 			counter++;
 			rp++;
 		}
-		if (*rp == (char) NULL)
+		if (*rp == '\0')
 			last_char = TRUE;
 		else
 		{
 			last_char = FALSE;
-			*rp = (char) NULL;
+			*rp = '\0';
 		}
 		if (old_string != NULL)
 		{
@@ -613,22 +615,22 @@ int flag;
 		u_old_string = xalloc(counter);
 		copy_str(start, old_string);
 		upt = u_old_string;
-		while (*start != (char) NULL)
+		while (*start != '\0')
 		{
 			*upt = toupper(*start);
 			upt++;
 			start++;
 		}
-		*upt = (char) NULL;
+		*upt = '\0';
 		if (!last_char)
 			start = ++rp;
 		counter = 1;
-		while ((*rp != delimiter) && (*rp != (char) NULL))
+		while ((*rp != delimiter) && (*rp != '\0'))
 		{
 			counter++;
 			rp++;
 		}
-		*rp = (char) NULL;
+		*rp = '\0';
 		new_string = xalloc(counter);
 		copy_str(start, new_string);
 		free(rparam);

@@ -1,11 +1,11 @@
 /*
  |	mark.c
  |
- |	$Header: /home/hugh/sources/aee/RCS/mark.c,v 1.10 1996/05/07 03:10:31 hugh Exp $
+ |	$Header: /home/hugh/sources/aee/RCS/mark.c,v 1.12 2010/07/18 01:00:56 hugh Exp hugh $
  */
 
 /*
- |	Copyright (c) 1986 - 1988, 1991 - 1996 Hugh Mahon.
+ |	Copyright (c) 1986 - 1988, 1991 - 1996, 2009, 2010 Hugh Mahon.
  */
 
 #include "aee.h"
@@ -104,7 +104,7 @@ paste()		/* insert text from paste buffer into current buffer	*/
 			}
 			curr_buff->curr_line->changed = TRUE;
 			curr_buff->changed = TRUE;
-			*curr_buff->pointer = (char) NULL;
+			*curr_buff->pointer = '\0';
 			curr_buff->curr_line->vert_len = (scanline(curr_buff->curr_line, curr_buff->curr_line->line_length) / COLS) + 1;
 			cpste_line = cpste_line->next_line;
 			right(FALSE);
@@ -200,7 +200,7 @@ cut()	/* cut selected (marked) text out of current buffer	*/
 				pst_pnt++;
 			}
 			if (*pst_pnt == -1)
-				*pst_pnt = (char) NULL;
+				*pst_pnt = '\0';
 			cpste_line = cpste_line->next_line;
 		}
 		curr_buff->scr_vert = vert;
@@ -231,7 +231,7 @@ cut_up()	/* cut text above current cursor position	*/
 	{
 		cpste_line = cpste_line->prev_line;
 		curr_buff->pointer = curr_buff->curr_line->line;
-		*curr_buff->pointer = (char) NULL;
+		*curr_buff->pointer = '\0';
 		curr_buff->position = curr_buff->curr_line->line_length = 1;
 		delete(FALSE);
 	}
@@ -263,7 +263,7 @@ cut_down()		/* cut text below current cursor position	*/
 	{
 		cpste_line = cpste_line->next_line;
 		curr_buff->pointer = curr_buff->curr_line->line;
-		*curr_buff->pointer = (char) NULL;
+		*curr_buff->pointer = '\0';
 		curr_buff->position = curr_buff->curr_line->line_length = 1;
 		delete(FALSE);
 		right(FALSE);
@@ -357,7 +357,7 @@ fast_right()	/* move right one character and select (mark) but do not display	*/
 {
 	if (curr_buff->position < curr_buff->curr_line->line_length)
 	{
-		if ((pst_pos == cpste_line->line_length) && (*pst_pnt == (char) NULL) && (curr_buff->position < curr_buff->curr_line->line_length))
+		if ((pst_pos == cpste_line->line_length) && (*pst_pnt == '\0') && (curr_buff->position < curr_buff->curr_line->line_length))
 		{
 			if ((cpste_line->max_length - cpste_line->line_length) < 5)
 				pst_pnt = resiz_line(10, cpste_line, pst_pos);
@@ -365,7 +365,7 @@ fast_right()	/* move right one character and select (mark) but do not display	*/
 			pst_pnt++;
 			pst_pos++;
 			cpste_line->line_length++;
-			*pst_pnt = (char) NULL;
+			*pst_pnt = '\0';
 		}
 		else if (curr_buff->position < curr_buff->curr_line->line_length)
 			slct_dlt();
@@ -404,7 +404,7 @@ char *direct;	/* direction of movement	*/
 			fpste_line = cpste_line = pste_tmp;
 			pste_tmp->line_length = 1;
 			pste_tmp->max_length = curr_buff->curr_line->max_length;
-			*pst_pnt = (char) NULL;
+			*pst_pnt = '\0';
 			pst_pos = 1;
 		}
 		else
@@ -432,7 +432,7 @@ char *direct;	/* direction of movement	*/
 		{
 			pste_tmp = txtalloc();
 			pst_pnt = pst_line = pste_tmp->line = xalloc(curr_buff->curr_line->max_length);
-			*pst_pnt = (char) NULL;
+			*pst_pnt = '\0';
 			pst_pos = 1;
 			pste_tmp->line_length = 1;
 			pste_tmp->max_length = curr_buff->curr_line->max_length;
@@ -464,7 +464,7 @@ int flag;
 		cpste_line = fpste_line = txtalloc();
 		cpste_line->line = pst_line = pst_pnt = xalloc(10);
 		pst_pos = cpste_line->line_length = 1;
-		*pst_pnt = (char) NULL;
+		*pst_pnt = '\0';
 		cpste_line->max_length = 10;
 		cpste_line->prev_line = NULL;
 		cpste_line->next_line = NULL;
@@ -490,7 +490,7 @@ slct_dlt()	/* delete character in buffer	*/
 		pst_pos--;
 		cpste_line->line_length--;
 		pst_pnt--;
-		*pst_pnt = (char) NULL;
+		*pst_pnt = '\0';
 	}
 	else if (pst_pos != cpste_line->line_length)
 	{
@@ -521,7 +521,7 @@ slct_right()	/* select text while moving right and display	*/
 			pst_pnt = resiz_line(10, cpste_line, pst_pos);
 		*pst_pnt = *curr_buff->pointer;
 		pst_pnt++;
-		*pst_pnt = (char) NULL;
+		*pst_pnt = '\0';
 		pst_pos++;
 		cpste_line->line_length++;
 		wmove(curr_buff->win, curr_buff->scr_vert, curr_buff->scr_horz);
@@ -606,7 +606,7 @@ char *direct;	/* direction	*/
 			pste_tmp->line_length = 1;
 			pste_tmp->max_length = curr_buff->curr_line->max_length;
 			fpste_line = cpste_line = pste_tmp;
-			*pst_pnt = (char) NULL;
+			*pst_pnt = '\0';
 			pst_pos = 1;
 			slct_left();
 		}
@@ -631,7 +631,7 @@ char *direct;	/* direction	*/
 		{
 			pste_tmp = txtalloc();
 			pst_pnt = pst_line = pste_tmp->line = xalloc(curr_buff->curr_line->max_length);
-			*pst_pnt = (char) NULL;
+			*pst_pnt = '\0';
 			pst_pos = 1;
 			pste_tmp->line_length = 1;
 			pste_tmp->max_length = curr_buff->curr_line->max_length;

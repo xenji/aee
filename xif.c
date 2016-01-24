@@ -4,7 +4,7 @@
  */
 
 /*
- |	Copyright (c) 1987, 1988, 1991 - 1996 Hugh Mahon.
+ |	Copyright (c) 1987, 1988, 1991 - 1996, 2001, 2009, 2010 Hugh Mahon.
  */
 
 #include "Xcurse.h"
@@ -125,6 +125,7 @@ extern Window wid;
 extern XFontStruct *xaefont;
 XButtonEvent *eventbutton;
 XMotionEvent *eventmotion;
+XKeyEvent *eventkey;
 
 /* ----- radio button declaration section ----- */
 
@@ -312,6 +313,7 @@ event_init()
 	xae_window_width = COLS * fontwidth;
 	eventbutton = (XButtonEvent *) &event;
 	eventmotion = (XMotionEvent *) &event;
+	eventkey= (XKeyEvent *) &event;
 #ifdef hide_cursor
 	ae_cursor = XCreateFontCursor(dp, XC_arrow);
 	XDefineCursor(dp, wid, ae_cursor);
@@ -321,6 +323,41 @@ event_init()
 #endif
 	panelfont = xaefont;
 	xfd = ConnectionNumber(dp);
+}
+
+static void 
+paste_it()
+{
+	int temp_indent;  /* if indent must be set FALSE, store original value here */
+	char *temp_buff;
+	char *temp_point;
+	int counter;
+	int buff_counter;
+
+	temp_indent = indent;
+	if (indent)
+	{
+		indent = FALSE;
+	}
+	temp_buff = XFetchBytes(dp, &buff_counter);
+	temp_point = temp_buff;
+	counter = 0;
+	while ((counter < buff_counter) && (temp_buff != NULL))
+	{
+		in = *temp_point;
+		if ((in == '\n') || (in == '\r'))
+			insert_line(TRUE);
+		else
+			insert(in);
+		if (counter < buff_counter)
+			temp_point++;
+		counter++;
+	}
+	indent = temp_indent;
+	if (temp_buff != NULL)
+		free(temp_buff);
+	wmove(curr_buff->win, curr_buff->scr_vert, curr_buff->scr_horz);
+	wrefresh(curr_buff->win);
 }
 
 void 
@@ -373,6 +410,7 @@ event_manage()		/* manage X-windows events for xae	*/
 
 		if (event.type == KeyPress)
 		{
+			KeySym key;
 #ifdef hide_cursor
 			if (cursor_on)
 			{
@@ -381,7 +419,22 @@ event_manage()		/* manage X-windows events for xae	*/
 				cursor_on = FALSE;
 			}
 #endif
-			valid = wgetch(stdscr);
+			char text[10];
+			XLookupString(eventkey, text, 10, &key, NULL);
+			char *keystring = XKeysymToString(key);
+
+			if ((keystring != NULL) && (strcmp("Insert", keystring) == 0))
+			{
+				if ((eventkey->state & ShiftMask) != 0)
+					paste_it();
+				else
+				{
+					overstrike = !overstrike;
+					status_display();
+				}
+			}
+			else
+				valid = wgetch(stdscr);
 		}
 		else if ((event.type == MotionNotify) && ((eventmotion->state == (ShiftMask | Button2MotionMask)) || (eventmotion->state == Button1MotionMask)))
 		{
@@ -399,6 +452,10 @@ event_manage()		/* manage X-windows events for xae	*/
 				tempy = 0;
 			if (tempy > curr_buff->last_line)
 				tempy = curr_buff->last_line;
+			if (tempx < 0)
+				tempx = 0;
+			if (tempx > curr_buff->last_col)
+				tempx = curr_buff->last_col;
 			move_to_xy(tempx, tempy);
 			if ((!cut_paste) && (!mark_text))
 			{
@@ -422,30 +479,7 @@ event_manage()		/* manage X-windows events for xae	*/
 		}
 		else if ((event.type == ButtonPress) && (((eventbutton->button == Button3) && (eventbutton->state == ShiftMask)) || ((eventbutton->button == Button2) && (!(eventbutton->state & ShiftMask)))))
 		{
-			temp_indent = indent;
-			if (indent)
-			{
-				indent = FALSE;
-			}
-			temp_buff = XFetchBytes(dp, &buff_counter);
-			temp_point = temp_buff;
-			counter = 0;
-			while ((counter < buff_counter) && (temp_buff != NULL))
-			{
-				in = *temp_point;
-				if ((in == '\n') || (in == '\r'))
-					insert_line(TRUE);
-				else
-					insert(in);
-				if (counter < buff_counter)
-					temp_point++;
-				counter++;
-			}
-			indent = temp_indent;
-			if (temp_buff != NULL)
-				free(temp_buff);
-			wmove(curr_buff->win, curr_buff->scr_vert, curr_buff->scr_horz);
-			wrefresh(curr_buff->win);
+			paste_it();
 		}
 		else if ((event.type == ButtonPress) && (eventbutton->button == Button1))
 		{
@@ -473,11 +507,17 @@ event_manage()		/* manage X-windows events for xae	*/
 			else
 			{
 				tempy -= curr_buff->window_top;
+				tempx = eventbutton->x / fontwidth;
+
 				if (tempy < 0)
 					tempy = 0;
 				if (tempy > curr_buff->last_line)
 					tempy = curr_buff->last_line;
-				move_to_xy((eventbutton->x / fontwidth), tempy);
+				if (tempx < 0)
+					tempx = 0;
+				if (tempx > curr_buff->last_col)
+					tempx = curr_buff->last_col;
+				move_to_xy(tempx, tempy);
 			}
 			status_display();
 			wrefresh(curr_buff->win);
@@ -663,7 +703,7 @@ cut_text()
 		else
 		{
 			counter -= 1;
-			*temp_point = (char) NULL;
+			*temp_point = '\0';
 			free(temp_text->line);
 			free(temp_text);
 			temp_text = NULL;

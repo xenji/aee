@@ -7,7 +7,7 @@
 .\" or
 .\"	tbl aee.1 | troff -man
 .\"
-.\"  Copyright (c) 1991, 1992, 1994, 1995, 1996, 1997, 1998, 1999 Hugh Mahon.
+.\"  Copyright (c) 1991, 1992, 1994, 1995, 1996, 1997, 1998, 1999, 2002 Hugh Mahon.
 .\"
 .TH aee 1 "" "" "" ""
 .SH NAME
@@ -266,6 +266,9 @@ section.
 .IP \fBdel\fRete 22
 Deletes the current buffer (the initial buffer 
 may not be deleted).
+.IP \fBdiff\fR 22
+Execute the \fIdiff\fR command comparing the contents of the edit buffer 
+with the associated file and place the results in a separate buffer.
 .IP "\fBecho\fR \fIstring\fR \(dg" 22
 Echoes the string to the terminal during startup of \fIaee\fR.
 .IP "\fBed\fRit \fIfilename\fR" 22
@@ -274,6 +277,8 @@ file can be edited.  If no file is specified, a temporary buffer name is
 created for use within \fIaee\fR.  If journalling is on for the initial 
 file being edited, journalling will occur for the new edit buffer as 
 well.
+.IP ee_mode*
+Have \fIaee\fR's main menu look more like \fIee\fR's main menu.
 .IP \fBei\fRght* 22
 If your terminal has an eight bit character set,
 then use this command to cause \fIaee\fR to send the 
@@ -317,6 +322,8 @@ Turns off the indent mode (default).
 Turn info window on (default).
 .IP "\fBnoinfo\fR *" 22
 Turn info window off.
+.IP \fBjournal\fR 22
+Displays the journal file associated with the current edit session buffer.
 .IP \fBjournaldir\fR 22
 Specifies the path to the directory where journal files are to be created.
 .IP \fBjustify\fR 22
@@ -373,7 +380,7 @@ Displays the function(s) assigned to the specified key.
 A status line is displayed on the bottom line of the screen.
 .IP \fBnostat\fRus*\(dd" 22
 Turns off the status line (default).
-.IP "\fBstops\fR \fInumber\fR *" 22
+.IP "\fBsp\fRacing \fInumber\fR *" 22
 Tabs will be spaced every \fInumber\fR spaces, unless other tabs are set 
 using the \fBtabs\fR command.
 .IP "\fBtabs\fR [\fIstops ...\fR] *" 22
@@ -1035,6 +1042,6 @@ proprietary information which is protected by
 copyright.  All rights are reserved. 
 .PP
 Copyright (c) 1986, 1987, 1988, 1991, 1992, 1993, 1994, 1995, 1996, 
-1997, 1998, 1999 portions 
+1997, 1998, 1999, 2002 portions 
 Hugh Mahon and 
 portions Hewlett-Packard Company.

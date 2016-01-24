@@ -37,14 +37,14 @@
  |	Copyright (c) 1986, 1987, 1988, 1991, 1992, 1993, 1994, 1995 Hugh Mahon
  |	All are rights reserved.
  |
- |	$Header: /home/hugh/sources/old_ae/RCS/new_curse.c,v 1.49 1998/12/21 02:25:59 hugh Exp hugh $
+ |	$Header: /home/hugh/sources/old_ae/RCS/new_curse.c,v 1.54 2002/09/21 00:47:14 hugh Exp $
  |
  */
 
 char *copyright_message[] = { "Copyright (c) 1986, 1987, 1988, 1991, 1992, 1993, 1994, 1995 Hugh Mahon",
 				"All rights are reserved."};
 
-char * new_curse_name= "@(#) new_curse.c $Revision: 1.49 $";
+char * new_curse_name= "@(#) new_curse.c $Revision: 1.54 $";
 
 #include "new_curse.h"
 #include <signal.h>
@@ -501,6 +501,10 @@ int interrupt_flag = FALSE;	/* set true if SIGWINCH received	*/
 char *Strings;
 #endif
 
+#if !defined(TERMCAP)
+#define TERMCAP "/etc/termcap"
+#endif 
+
 struct KEYS {
 	int length;	/* length of string sent by key			*/
 	char *string;	/* string sent by key				*/
@@ -658,6 +662,14 @@ int *virtual_lines;
 
 static char nc_scrolling_ability = FALSE;
 
+char *terminfo_path[] = {
+        "/lib/terminfo", 
+        "/usr/lib/terminfo", 
+        "/usr/share/lib/terminfo", 
+        "/usr/share/terminfo", 
+        NULL 
+        };
+
 #ifdef CAP
 
 #if defined(__STDC__) || defined(__cplusplus)
@@ -767,6 +779,7 @@ void
 initscr()		/* initialize terminal for operations	*/
 {
 	int value;
+	int counter;
 	char *lines_string;
 	char *columns_string;
 #ifdef CAP
@@ -899,30 +912,26 @@ printf("starting initscr \n");fflush(stdout);
 		Term_File_name = malloc(Data_Line_len);
 		sprintf(Term_File_name, "%s/%c/%s", TERM_PATH, *TERMINAL_TYPE, TERMINAL_TYPE);
 		Fildes = open(Term_File_name, O_RDONLY);
+		if (Fildes == -1)
+		{
+        		sprintf(Term_File_name, "%s/%x/%s", TERM_PATH, *TERMINAL_TYPE, TERMINAL_TYPE);
+        		Fildes = open(Term_File_name, O_RDONLY);
+		}
 	}
-	if (Fildes == -1)
+	counter = 0;
+	while ((Fildes == -1) && (terminfo_path[counter] != NULL))
 	{
-		TERM_PATH = "/usr/lib/terminfo";
+		TERM_PATH = terminfo_path[counter];
 		Data_Line_len = 23 + strlen(TERM_PATH) + strlen(TERMINAL_TYPE);
 		Term_File_name = malloc(Data_Line_len);
 		sprintf(Term_File_name, "%s/%c/%s", TERM_PATH, *TERMINAL_TYPE, TERMINAL_TYPE);
 		Fildes = open(Term_File_name, O_RDONLY);
-	}
-	if (Fildes == -1)
-	{
-		TERM_PATH = "/usr/share/lib/terminfo";
-		Data_Line_len = 23 + strlen(TERM_PATH) + strlen(TERMINAL_TYPE);
-		Term_File_name = malloc(Data_Line_len);
-		sprintf(Term_File_name, "%s/%c/%s", TERM_PATH, *TERMINAL_TYPE, TERMINAL_TYPE);
-		Fildes = open(Term_File_name, O_RDONLY);
-	}
-	if (Fildes == -1)
-	{
-		TERM_PATH = "/usr/share/terminfo";
-		Data_Line_len = 23 + strlen(TERM_PATH) + strlen(TERMINAL_TYPE);
-		Term_File_name = malloc(Data_Line_len);
-		sprintf(Term_File_name, "%s/%c/%s", TERM_PATH, *TERMINAL_TYPE, TERMINAL_TYPE);
-		Fildes = open(Term_File_name, O_RDONLY);
+		if (Fildes == -1)
+		{
+        		sprintf(Term_File_name, "%s/%x/%s", TERM_PATH, *TERMINAL_TYPE, TERMINAL_TYPE);
+        		Fildes = open(Term_File_name, O_RDONLY);
+		}
+		counter++;
 	}
 	if (Fildes == -1)
 	{
@@ -939,15 +948,15 @@ printf("starting initscr \n");fflush(stdout);
 	if ((pointer = Term_File_name = getenv("TERMCAP")) != NULL)
 	{
 		if (*Term_File_name != '/')
-			Term_File_name = "/etc/termcap";
+			Term_File_name = TERMCAP;
 	}
 	else
 	{
-		Term_File_name = "/etc/termcap";
+		Term_File_name = TERMCAP;
 	}
 	if ((TFP = fopen(Term_File_name, "r")) == NULL)
 	{
-		printf("unable to open /etc/termcap file \n");
+		printf("unable to open %s file \n", TERMCAP);
 		exit(0);
 	}
  	for (value = 0; value < 1024; value++)	
@@ -1105,7 +1114,7 @@ INFO_PARSE()		/* parse off the data in the terminfo data file	*/
 		Num_bools--;
 		Booleans[counter++] = *TERM_data_ptr++;
 	}
-	if (((unsigned int) TERM_data_ptr) & 1)	/* force alignment	*/
+	if ((unsigned long)(TERM_data_ptr) & 1)	/* force alignment	*/
 		TERM_data_ptr++;
 	counter = 0;
 	while (Num_ints)
@@ -1360,7 +1369,7 @@ Find_term()		/* find terminal description in termcap file	*/
 	char *Name;
 	char *Ftemp;
 
-	Ftemp = Name = malloc(strlen(TERMINAL_TYPE + 1) + 1);
+	Ftemp = Name = malloc(strlen(TERMINAL_TYPE) + 2);
 	strcpy(Name, TERMINAL_TYPE);
 	while (*Ftemp != (char)NULL)
 		Ftemp++;
@@ -1445,7 +1454,6 @@ CAP_PARSE()		/* parse off the data in the termcap data file	*/
 		TERMINAL_TYPE = tc_;
 		rewind(TFP);
 		Find_term();
-		free(tc_);
 		tc_ = NULL;
 		CAP_PARSE();
 	}
@@ -1469,13 +1477,13 @@ int columns;
 	for (i = 0; i < columns; i++)
 	{
 		tmp->row[i] = ' ';
-		tmp->attributes[i] = (char) NULL;
+		tmp->attributes[i] = '\0';
 	}
 	tmp->scroll = tmp->changed = FALSE;
-	tmp->row[0] = (char) NULL;
-	tmp->attributes[0] = (char) NULL;
-	tmp->row[columns] = (char) NULL;
-	tmp->attributes[columns] = (char) NULL;
+	tmp->row[0] = '\0';
+	tmp->attributes[0] = '\0';
+	tmp->row[columns] = '\0';
+	tmp->attributes[columns] = '\0';
 	tmp->last_char = 0;
 	return(tmp);
 }
@@ -1860,7 +1868,7 @@ int place;
 	}
 	delay = 0;
 	Otemp = string;
-	while (*Otemp != (char) NULL)
+	while (*Otemp != '\0')
 	{
 		if (*Otemp == '%')
 		{
@@ -1878,7 +1886,7 @@ int place;
 						 |  find the end of the 
 						 |  conditional statement
 						 */
-						while ((strncmp(Otemp, "%t", 2)) && (*Otemp != (char) NULL))
+						while ((strncmp(Otemp, "%t", 2)) && (*Otemp != '\0'))
 						{
 							/*
 							 |  move past '%'
@@ -1906,12 +1914,12 @@ int place;
 							 |  find 'else' or end 
 							 |  of if statement
 							 */
-							while ((strncmp(Otemp, "%e", 2)) && (strncmp(Otemp, "%;", 2)) && (*Otemp != (char) NULL))
+							while ((strncmp(Otemp, "%e", 2)) && (strncmp(Otemp, "%;", 2)) && (*Otemp != '\0'))
 								Otemp++;
 							/*
 							 |  if an 'else' found
 							 */
-							if ((*Otemp != (char) NULL) && (!strncmp(Otemp, "%e", 2)))
+							if ((*Otemp != '\0') && (!strncmp(Otemp, "%e", 2)))
 							{
 								Otemp++;
 								Otemp++;
@@ -1919,12 +1927,12 @@ int place;
 								/*
 								 |  check for 'then' part
 								 */
-								while ((*tchar != (char) NULL) && (strncmp(tchar, "%t", 2)) && (strncmp(tchar, "%;", 2)))
+								while ((*tchar != '\0') && (strncmp(tchar, "%t", 2)) && (strncmp(tchar, "%;", 2)))
 									tchar++;
 								/*
 								 |  if end of string
 								 */
-								if (*tchar == (char) NULL)
+								if (*tchar == '\0')
 								{
 									EVAL = FALSE;
 									Cond_FLAG = FALSE;
@@ -1948,7 +1956,7 @@ int place;
 							 |  get out of if 
 							 |  statement
 							 */
-							else if ((*Otemp != (char) NULL) && (!strncmp(Otemp, "%;", 2)))
+							else if ((*Otemp != '\0') && (!strncmp(Otemp, "%;", 2)))
 							{
 								EVAL = FALSE;
 								Otemp++;
@@ -1968,9 +1976,9 @@ int place;
 					Cond_FLAG = FALSE;
 					if (*Otemp != ';')
 					{
-						while ((*Otemp != (char) NULL) && (strncmp(Otemp, "%;", 2)))
+						while ((*Otemp != '\0') && (strncmp(Otemp, "%;", 2)))
 							Otemp++;
-						if (*Otemp != (char) NULL)
+						if (*Otemp != '\0')
 						{
 							Otemp++;
 							Otemp++;
@@ -2039,12 +2047,12 @@ int cols;
 		for (j = line->last_char; j < column; j++)
 		{
 			line->row[j] = ' ';
-			line->attributes[j] = (char) NULL;
+			line->attributes[j] = '\0';
 		}
 	}
 	line->last_char = column;
-	line->row[column] = (char) NULL;
-	line->attributes[column] = (char) NULL;
+	line->row[column] = '\0';
+	line->attributes[column] = '\0';
 	line->changed = TRUE;
 }
 
@@ -2176,14 +2184,14 @@ WINDOW *window;
 				  	virt_col++, user_col++)
 			{
 				virtual_line->row[virt_col] = ' ';
-				virtual_line->attributes[virt_col] = (char) NULL;
+				virtual_line->attributes[virt_col] = '\0';
 			}
 		}
 		if (virtual_scr->Num_cols != window->Num_cols)
 		{
 			if (virtual_line->last_char < (user_line->last_char + window->SC))
 			{
-				if (virtual_line->row[virtual_line->last_char] == (char) NULL)
+				if (virtual_line->row[virtual_line->last_char] == '\0')
 					virtual_line->row[virtual_line->last_char] = ' ';
 				virtual_line->last_char = 
 					min(virtual_scr->Num_cols, 
@@ -2192,7 +2200,7 @@ WINDOW *window;
 		}
 		else
 			virtual_line->last_char = user_line->last_char;
-		virtual_line->row[virtual_line->last_char] = (char) NULL;
+		virtual_line->row[virtual_line->last_char] = '\0';
 		virtual_line->changed = user_line->changed;
 		virtual_line = virtual_line->next_screen;
 		user_line = user_line->next_screen;
@@ -2337,7 +2345,7 @@ int first_char;				/* first character of sequence	*/
 	Count = 0;
 	Gtemp = string;
 	string[Count++] = first_char;
-	string[Count] = (char) NULL;
+	string[Count] = '\0';
 	Time_Out = FALSE;
 #ifndef BSD_SELECT
 	signal(SIGALRM, Clear);
@@ -2361,7 +2369,7 @@ fflush(stderr);
 		if (in_char != -1)
 		{
 			string[Count++] = in_char;
-			string[Count] = (char) NULL;
+			string[Count] = '\0';
 			St_point = KEY_TOS;
 			while ((St_point != NULL) && (!Found))
 			{
@@ -2447,10 +2455,10 @@ int c;
 					for (j = tmpline->last_char; j < column; j++)
 					{
 						tmpline->row[j] = ' ';
-						tmpline->attributes[j] = (char) NULL;
+						tmpline->attributes[j] = '\0';
 					}
-				tmpline->row[column + 1] = (char) NULL;
-				tmpline->attributes[column + 1] = (char) NULL;
+				tmpline->row[column + 1] = '\0';
+				tmpline->attributes[column + 1] = '\0';
 				tmpline->last_char = column + 1;
 			}
 		}
@@ -2628,7 +2636,7 @@ char *string;
 {
 	char *wstring;
 
-	for (wstring = string; *wstring != (char) NULL; wstring++)
+	for (wstring = string; *wstring != '\0'; wstring++)
 		waddch(window, *wstring);
 }
 
@@ -2688,7 +2696,7 @@ raw()			/* set to read characters immediately		*/
 	Terminal.c_lflag &= ~IEXTEN;
 #endif
 	Terminal.c_cc[VMIN] = 1;		/* minimum of one character */
-	Terminal.c_cc[VTIME] = 255;		/* timeout value	*/
+	Terminal.c_cc[VTIME] = 0;		/* timeout value	*/
 	Terminal.c_cc[VINTR] = 0;		/* eliminate interrupt	*/
 	value = ioctl(0, TCSETA, &Terminal);	/* set characteristics	*/
 #else
@@ -2706,7 +2714,7 @@ noraw()			/* set to normal character read mode		*/
 	Terminal.c_lflag |= ICANON;	/* enable canonical operation	*/
 	Terminal.c_lflag |= ISIG;	/* enable signal checking	*/
 	Terminal.c_cc[VEOF] = 4;		/* EOF character = 4	*/
-	Terminal.c_cc[VEOL] = (char) NULL;	/* EOL = 0		*/
+	Terminal.c_cc[VEOL] = '\0';	/* EOL = 0		*/
 	Terminal.c_cc[VINTR] = Intr;		/* reset interrupt char	*/
 	value = ioctl(0, TCSETA, &Terminal);	/* set characteristics	*/
 #else
@@ -2874,7 +2882,7 @@ wprintw(WINDOW *window, const char *format, ...)
 #endif /* __STDC__ */
 
 	fpoint = (char *) format;
-	while (*fpoint != (char) NULL)
+	while (*fpoint != '\0')
 	{
 		if (*fpoint == '%')
 		{
@@ -2951,12 +2959,12 @@ struct _line *line2;
 	att1 = line1->attributes;
 	att2 = line2->attributes;
 	i = 0;
-	while ((c1[i] != (char) NULL) && (c2[i] != (char) NULL) && (c1[i] == c2[i]) && (att1[i] == att2[i]))
+	while ((c1[i] != '\0') && (c2[i] != '\0') && (c1[i] == c2[i]) && (att1[i] == att2[i]))
 		i++;
 	count1 = i + 1;
-	if ((count1 == 1) && (c1[i] == (char) NULL) && (c2[i] == (char) NULL))
+	if ((count1 == 1) && (c1[i] == '\0') && (c2[i] == '\0'))
 		count1 = 0;			/* both lines blank	*/
-	else if ((c1[i] == (char) NULL) && (c2[i] == (char) NULL))
+	else if ((c1[i] == '\0') && (c2[i] == '\0'))
 		count1 = -1;			/* equal		*/
 	else
 		count1 = 1;			/* lines unequal	*/
@@ -3109,9 +3117,9 @@ int row, column;
 	for (x = column; x<window->Num_cols; x++)
 	{
 		tmp1->row[x] = ' ';
-		tmp1->attributes[x] = (char) NULL;
+		tmp1->attributes[x] = '\0';
 	}
-	tmp1->row[column] = (char) NULL;
+	tmp1->row[column] = '\0';
 	tmp1->last_char = column;
 	if (column < COLS)
 	{
@@ -3153,16 +3161,16 @@ struct _line *pointer_new, *pointer_old;
 	old_lin = pointer_old->row;
 	old_att = pointer_old->attributes;
 	end_old = end_new = offset;
-	while (((new_lin[end_new] != old_lin[end_old]) || (new_att[end_new] != old_att[end_old])) && (old_lin[end_old] != (char) NULL) && (new_lin[end_old] != (char) NULL))
+	while (((new_lin[end_new] != old_lin[end_old]) || (new_att[end_new] != old_att[end_old])) && (old_lin[end_old] != '\0') && (new_lin[end_old] != '\0'))
 		end_old++;
-	if (old_lin[end_old] != (char) NULL)
+	if (old_lin[end_old] != '\0')
 	{
 		k = 0;
-		while ((old_lin[end_old+k] == new_lin[end_new+k]) && (new_att[end_new+k] == old_att[end_old+k]) && (new_lin[end_new+k] != (char) NULL) && (old_lin[end_old+k] != (char) NULL) && (k < 10))
+		while ((old_lin[end_old+k] == new_lin[end_new+k]) && (new_att[end_new+k] == old_att[end_old+k]) && (new_lin[end_new+k] != '\0') && (old_lin[end_old+k] != '\0') && (k < 10))
 			k++;
-		if ((k > 8) || ((new_lin[end_new+k] == (char) NULL) && (k != 0)))
+		if ((k > 8) || ((new_lin[end_new+k] == '\0') && (k != 0)))
 		{
-			if (new_lin[end_new+k] == (char) NULL)
+			if (new_lin[end_new+k] == '\0')
 			{
 				Position(window, line, (end_new+k));
 				CLEAR_TO_EOL(window, line, (end_new+k));
@@ -3170,7 +3178,7 @@ struct _line *pointer_new, *pointer_old;
 			Position(window, line, offset);
 			for (k = offset; k < end_old; k++)
 				Char_del(old_lin, old_att, offset, window->Num_cols);
-			while ((old_lin[offset] != (char) NULL) && (offset < COLS))
+			while ((old_lin[offset] != '\0') && (offset < COLS))
 				offset++;
 			pointer_old->last_char = offset;
 			changed = TRUE;
@@ -3207,12 +3215,12 @@ struct _line *pointer_new, *pointer_old;
 	old_lin = pointer_old->row;
 	old_att = pointer_old->attributes;
 	end_old = end_new = offset;
-	while (((new_lin[end_new] != old_lin[end_old]) || (new_att[end_new] != old_att[end_old])) && (new_lin[end_new] != (char) NULL) && (old_lin[end_new] != (char) NULL))
+	while (((new_lin[end_new] != old_lin[end_old]) || (new_att[end_new] != old_att[end_old])) && (new_lin[end_new] != '\0') && (old_lin[end_new] != '\0'))
 		end_new++;
-	if (new_lin[end_new] != (char) NULL)
+	if (new_lin[end_new] != '\0')
 	{
 		k = 0;
-		while ((old_lin[end_old+k] == new_lin[end_new+k]) && (old_att[end_old+k] == new_att[end_new+k]) && (new_lin[end_new+k] != (char) NULL) && (old_lin[end_old+k] != (char) NULL) && (k < 10))
+		while ((old_lin[end_old+k] == new_lin[end_new+k]) && (old_att[end_old+k] == new_att[end_new+k]) && (new_lin[end_new+k] != '\0') && (old_lin[end_old+k] != '\0') && (k < 10))
 			k++;
 		/*
 		 |  check for commonality between rest of lines (are the old 
@@ -3220,11 +3228,11 @@ struct _line *pointer_new, *pointer_old;
 		 |  if the rest of the lines are common, do not insert text
 		 */
 		old_off = end_new;
-		while ((old_lin[old_off] != (char) NULL) && (new_lin[old_off] != (char) NULL) && (old_lin[old_off] == new_lin[old_off]) && (old_att[old_off] == new_att[old_off]))
+		while ((old_lin[old_off] != '\0') && (new_lin[old_off] != '\0') && (old_lin[old_off] == new_lin[old_off]) && (old_att[old_off] == new_att[old_off]))
 			old_off++;
 		if ((old_lin[old_off] == new_lin[old_off]) && (old_att[old_off] == new_att[old_off]))
 			same = TRUE;
-		if ((!same) && ((k > 8) || ((new_lin[end_new+k] == (char) NULL) && (k != 0))))
+		if ((!same) && ((k > 8) || ((new_lin[end_new+k] == '\0') && (k != 0))))
 		{
 			Position(window, line, offset);
 			insert = FALSE;
@@ -3241,7 +3249,7 @@ struct _line *pointer_new, *pointer_old;
 			}
 			if (insert)
 				String_Out(String_table[ei__], NULL, 0);
-			while ((old_lin[offset] != (char) NULL) && (offset < COLS))
+			while ((old_lin[offset] != '\0') && (offset < COLS))
 				offset++;
 			pointer_old->last_char = offset;
 			changed = TRUE;
@@ -3312,7 +3320,7 @@ doupdate()
 		for (from_top = 0, curr = curscr->first_line; from_top < curscr->Num_lines; from_top++, curr = curr->next_screen)
 		{
 			Position(curscr, from_top, 0);
-			for (j = 0; (curr->row[j] != (char) NULL) && (j < curscr->Num_cols); j++)
+			for (j = 0; (curr->row[j] != '\0') && (j < curscr->Num_cols); j++)
 			{
 				Char_out(curr->row[j], curr->attributes[j], curr->row, curr->attributes, j);
 			}
@@ -3534,7 +3542,7 @@ doupdate()
 		 */
 
 		if (((String_table[ic__]) || (String_table[im__])) && 
-		    (String_table[dc__]) && (curr->row[0] != (char) NULL) &&
+		    (String_table[dc__]) && (curr->row[0] != '\0') &&
 		    (!NC_chinese))
 		{
 			j = 0;
@@ -3543,11 +3551,11 @@ doupdate()
 			vrt_att = virt->attributes;
 			cur_lin = curr->row;
 			cur_att = curr->attributes;
-			while ((vrt_lin[j] != (char) NULL) && (j < window->Num_cols))
+			while ((vrt_lin[j] != '\0') && (j < window->Num_cols))
 			{
 				if ((STAND) && (Booleans[xs__]))
 				{
-					while ((vrt_lin[j] == cur_lin[j]) && (vrt_att[j] == cur_att[j]) && (vrt_lin[j] != (char) NULL) && (vrt_att[j]))
+					while ((vrt_lin[j] == cur_lin[j]) && (vrt_att[j] == cur_att[j]) && (vrt_lin[j] != '\0') && (vrt_att[j]))
 						j++;
 					if ((STAND) && (!vrt_att[j]))
 					{
@@ -3559,7 +3567,7 @@ doupdate()
 				}
 				else
 				{
-					while ((vrt_lin[j] == cur_lin[j]) && (vrt_att[j] == cur_att[j]) && (vrt_lin[j] != (char) NULL))
+					while ((vrt_lin[j] == cur_lin[j]) && (vrt_att[j] == cur_att[j]) && (vrt_lin[j] != '\0'))
 						j++;
 				}
 				if ((vrt_att[j] != cur_att[j]) && (cur_att[j]) && (Booleans[xs__]))
@@ -3569,7 +3577,7 @@ doupdate()
 					attribute_off();
 					attribute_off();
 				}
-				if (vrt_lin[j] != (char) NULL)
+				if (vrt_lin[j] != '\0')
 				{
 					begin_new = j;
 					begin_old = j;
@@ -3587,7 +3595,7 @@ doupdate()
 						changed = check_insert(window, from_top, j, virt, curr);
 					if (((!changed) || (cur_lin[j] != vrt_lin[j]) || (cur_att[j] != vrt_att[j])) && (j < window->Num_cols))
 					{
-						if ((vrt_lin[j] == ' ') && (cur_lin[j] == (char) NULL) && (vrt_att[j] == cur_att[j]))
+						if ((vrt_lin[j] == ' ') && (cur_lin[j] == '\0') && (vrt_att[j] == cur_att[j]))
 							cur_lin[j] = ' ';
 						else
 						{
@@ -3595,7 +3603,7 @@ doupdate()
 							Char_out(vrt_lin[j], vrt_att[j], cur_lin, cur_att, j);
 						}
 					}
-					if ((vrt_lin[j] != (char) NULL))
+					if ((vrt_lin[j] != '\0'))
 						j++;
 				}
 				if ((STAND) && (!vrt_att[j]))
@@ -3605,7 +3613,7 @@ doupdate()
 					attribute_off();
 				}
 			}
-			if ((vrt_lin[j] == (char) NULL) && (cur_lin[j] != (char) NULL))
+			if ((vrt_lin[j] == '\0') && (cur_lin[j] != '\0'))
 			{
 				Position(window, from_top, j);
 				CLEAR_TO_EOL(window, from_top, j);
@@ -3618,9 +3626,9 @@ doupdate()
 			att1 = curr->attributes;
 			c2 = virt->row;
 			att2 = virt->attributes;
-			while ((j < window->Num_cols) && (c2[j] != (char) NULL))
+			while ((j < window->Num_cols) && (c2[j] != '\0'))
 			{
-				while ((c1[j] == c2[j]) && (att1[j] == att2[j]) && (j < window->Num_cols) && (c2[j] != (char) NULL))
+				while ((c1[j] == c2[j]) && (att1[j] == att2[j]) && (j < window->Num_cols) && (c2[j] != '\0'))
 					j++;
 
 				/*
@@ -3632,16 +3640,16 @@ doupdate()
 					j--;
 				begin_old = j;
 				begin_new = j;
-				if ((j < window->Num_cols) && (c2[j] != (char) NULL))
+				if ((j < window->Num_cols) && (c2[j] != '\0'))
 				{
 					Position(window, from_top, begin_old);
 					CLEAR_TO_EOL(window, from_top, j);
 					Position(window, from_top, begin_old);
-					for (j = begin_old; (c2[j] != (char) NULL) && (j < window->Num_cols); j++)
+					for (j = begin_old; (c2[j] != '\0') && (j < window->Num_cols); j++)
 						Char_out(c2[j], att2[j], c1, att1, j);
 				}
 			}
-			if ((c2[j] == (char) NULL) && (c1[j] != (char) NULL))
+			if ((c2[j] == '\0') && (c1[j] != '\0'))
 			{
 				Position(window, from_top, j);
 				CLEAR_TO_EOL(window, from_top, j);
@@ -3697,7 +3705,7 @@ int maxlen;
 {
 	int one, two;
 
-	for (one = offset, two = offset+1; (line[one] != (char) NULL) && (one < maxlen); one++, two++)
+	for (one = offset, two = offset+1; (line[one] != '\0') && (one < maxlen); one++, two++)
 	{
 		line[one] = line[two];
 		attrib[one] = attrib[two];
@@ -3717,7 +3725,7 @@ int maxlen;
 	int one, two;
 
 	one = 0;
-	while ((line[one] != (char) NULL) && (one < (maxlen - 2)))
+	while ((line[one] != '\0') && (one < (maxlen - 2)))
 		one++;
 	for (two = one + 1; (two > offset); one--, two--)
 	{

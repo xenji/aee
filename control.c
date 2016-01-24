@@ -1,11 +1,11 @@
 /*
  |	control.c
  |
- |	$Header: /home/hugh/sources/aee/RCS/control.c,v 1.43 1999/02/01 01:10:02 hugh Exp $
+ |	$Header: /home/hugh/sources/aee/RCS/control.c,v 1.50 2010/07/18 00:56:20 hugh Exp hugh $
  */
 
 /*
- |	Copyright (c) 1986 - 1988, 1991 - 1999 Hugh Mahon.
+ |	Copyright (c) 1986 - 1988, 1991 - 2000 - 2002, 2009, 2010 Hugh Mahon.
  */
 
 #include "aee.h"
@@ -339,7 +339,7 @@ shell_op()
 	char *string;
 
 	if (((string = get_string(shell_cmd_prompt, TRUE)) != NULL) && 
-			(*string != (char) NULL))
+			(*string != '\0'))
 	{
 		sh_command(string);
 		free(string);
@@ -615,13 +615,13 @@ int arg;
 	char *string;
 	int flag;
 
-	if (restrict_mode())
-	{
-		return(1);
-	}
-
 	if (arg == READ_FILE)
 	{
+		if (restrict_mode())
+		{
+			return(1);
+		}
+
 		string = get_string(file_read_prompt_str, TRUE);
 		recv_file = TRUE;
 		tmp_file = resolve_name(string);
@@ -632,6 +632,11 @@ int arg;
 	}
 	else if (arg == WRITE_FILE)
 	{
+		if (restrict_mode())
+		{
+			return(1);
+		}
+
 		string = get_string(file_write_prompt_str, TRUE);
 		tmp_file = resolve_name(string);
 		write_file(tmp_file);
@@ -642,7 +647,8 @@ int arg;
 	else if (arg == SAVE_FILE)
 	{
 	/*
-	 |	changes made here should be reflected in finish()
+	 |	changes made here should be reflected in finish() and 
+	 |	in command() where SAVE_str is handled.
 	 */
 
 		if (!curr_buff->edit_buffer)
@@ -659,14 +665,21 @@ int arg;
 
 		string = curr_buff->full_name;
 
-		if ((string != NULL) && (*string != (char)NULL))
+		if ((string != NULL) && (*string != '\0'))
 			flag = TRUE;
 		else
 			flag = FALSE;
 
-		if ((string == NULL) || (*string == (char) NULL))
+		if ((string == NULL) || (*string == '\0'))
+		{
+			if (restrict_mode())
+			{
+				return(1);
+			}
+
 			string = get_string(save_file_name_prompt, TRUE);
-		if ((string == NULL) || (*string == (char) NULL))
+		}
+		if ((string == NULL) || (*string == '\0'))
 		{
 			wmove(com_win, 0, 0);
 			wprintw(com_win, file_not_saved_msg );
@@ -691,7 +704,7 @@ int arg;
 			if (curr_buff->file_name == NULL)
 			{
 				curr_buff->full_name = get_full_path(string, 
-							curr_buff->orig_dir);
+							NULL);
 				curr_buff->file_name = 
 					ae_basename(curr_buff->full_name);
 			}
@@ -734,7 +747,7 @@ char *macro_string;
 		if (compare(temp, macro_string, FALSE))
 		{
 			temp = next_word(temp);
-			if (*temp == (char) NULL)
+			if (*temp == '\0')
 				return(counter);
 		}
 	}
@@ -779,7 +792,7 @@ paint_information()
 
 	for (counter = 0; counter < (info_win_height - 1); counter++)
 	{
-		info_data[counter][0] = (char) NULL;
+		info_data[counter][0] = '\0';
 	}
 
 	width = 0;
@@ -940,6 +953,32 @@ command_prompt()
 		free(cmd_str);
 }
 
+/*
+ |	after changing the tab spacing, or inserting or deleting tab stops, 
+ |	re-calculate the vertical length of lines in buffers to ensure 
+ |	proper drawing of lines.
+ */
+
+void 
+tab_resize()
+{
+	struct bufr *tt;		/* temporary pointer		*/
+	struct text *tmp_tx;		/* temporary text pointer	*/
+
+	tt = first_buff;
+	while (tt != NULL)
+	{
+		for (tmp_tx = tt->first_line; tmp_tx != NULL; 
+		        tmp_tx = tmp_tx->next_line)
+		{
+			tmp_tx->vert_len = (scanline(tmp_tx, 
+			     tmp_tx->line_length) / COLS) + 1;
+		}
+		tt->window_top = first_buff->window_top;
+		tt = tt->next_buff;
+	}
+}
+
 void 
 command(cmd_str)	/* process commands from command line	*/
 char *cmd_str;
@@ -992,9 +1031,10 @@ char *cmd_str;
 	else if (compare(cmd_str, TABS_str, FALSE))
 	{
 		cmd_str = next_word(cmd_str);
-		if (*cmd_str != (char) NULL)
+		if (*cmd_str != '\0')
 		{
 			tab_set(cmd_str);
+			tab_resize();
 			new_screen();
 		}
 		else
@@ -1013,14 +1053,16 @@ char *cmd_str;
 	else if (compare(cmd_str, UNTABS_str, FALSE))
 	{
 		unset_tab(cmd_str);
+		tab_resize();
 		new_screen();
 	}
 	else if (compare(cmd_str, SPACING_str, FALSE))
 	{
 		cmd_str2 = next_word(cmd_str);
-		if (*cmd_str2 != (char) NULL)
+		if (*cmd_str2 != '\0')
 		{
 			tab_spacing = atoi(cmd_str2);
+			tab_resize();
 			midscreen(curr_buff->scr_vert, curr_buff->position);
 		}
 		else
@@ -1037,15 +1079,15 @@ char *cmd_str;
 			return;
 		}
 		cmd_str2 = next_word(cmd_str);
-		if (*cmd_str2 == (char) NULL)
+		if (*cmd_str2 == '\0')
 		{
 			alloc_space = TRUE;
 			cmd_str2 = get_string(file_write_prompt_str, TRUE);
 		}
 		tmp = cmd_str2;
-		while ((*tmp != ' ') && (*tmp != '\t') && (*tmp != (char) NULL))
+		while ((*tmp != ' ') && (*tmp != '\t') && (*tmp != '\0'))
 			tmp++;
-		*tmp = (char) NULL;
+		*tmp = '\0';
 		tmp_file = resolve_name(cmd_str2);
 		write_file(tmp_file);
 		if (tmp_file != cmd_str2)
@@ -1060,15 +1102,15 @@ char *cmd_str;
 			return;
 		}
 		cmd_str2 = next_word(cmd_str);
-		if (*cmd_str2 == (char) NULL)
+		if (*cmd_str2 == '\0')
 		{
 			alloc_space = TRUE;
 			cmd_str2 = get_string(file_read_prompt_str, TRUE);
 		}
 		tmp = cmd_str2;
-		while ((*tmp != ' ') && (*tmp != '\t') && (*tmp != (char) NULL))
+		while ((*tmp != ' ') && (*tmp != '\t') && (*tmp != '\0'))
 			tmp++;
-		*tmp = (char) NULL;
+		*tmp = '\0';
 		tmp_file = resolve_name(cmd_str2);
 		recv_file = TRUE;
 		value = check_fp();
@@ -1078,7 +1120,51 @@ char *cmd_str;
 			free(cmd_str2);
 	}
 	else if (compare(cmd_str, SAVE_str, FALSE))
-		file_op(SAVE_FILE);
+	{
+		/*
+		 |	Should reflect changes made here in file_op() 
+		 |	where 'save' command is handled.
+		 */
+
+		cmd_str2 = next_word(cmd_str);
+		if (!curr_buff->edit_buffer)
+			file_op(SAVE_FILE);
+		else if ((*cmd_str2 != '\0') && (curr_buff->file_name == NULL))
+		{
+			tmp_file = resolve_name(cmd_str2);
+			if (tmp_file != cmd_str2)
+			{
+				alloc_space = TRUE;
+				cmd_str2 = tmp_file;
+			}
+
+			if (write_file(cmd_str2))
+			{
+				if (curr_buff->file_name == NULL)
+				{
+					curr_buff->full_name = get_full_path(cmd_str2, 
+								NULL);
+					curr_buff->file_name = 
+						ae_basename(curr_buff->full_name);
+				}
+				curr_buff->changed = FALSE;
+				change = FALSE;
+				if (alloc_space)
+					free(cmd_str2);
+			}
+			else 
+			{
+				if (alloc_space)
+					free(cmd_str2);
+				return;
+			}
+		}
+		else
+		{
+			file_op(SAVE_FILE);
+		}
+
+	}
 	else if (compare(cmd_str, LITERAL_str, FALSE))
 		literal = TRUE;
 	else if (compare(cmd_str, NOLITERAL_str, FALSE))
@@ -1399,8 +1485,8 @@ char *cmd_str;
 		if ((*cmd_str == ' ') || (*cmd_str == '\t'))
 			cmd_str = next_word(cmd_str);
 		c_int = 0;
-		in_buff_name[c_int] = (char) NULL;
-		while ((*cmd_str != '!') && (*cmd_str != '>') && (*cmd_str != '<') && (*cmd_str != ' ') && (*cmd_str != '\t') && (*cmd_str != (char) NULL))
+		in_buff_name[c_int] = '\0';
+		while ((*cmd_str != '!') && (*cmd_str != '>') && (*cmd_str != '<') && (*cmd_str != ' ') && (*cmd_str != '\t') && (*cmd_str != '\0'))
 		{
 			in_buff_name[c_int] = *cmd_str;
 			cmd_str++;
@@ -1411,7 +1497,7 @@ char *cmd_str;
 			copy_str(curr_buff->name, in_buff_name);
 		}
 		else
-			in_buff_name[c_int] = (char) NULL;
+			in_buff_name[c_int] = '\0';
 		if ((*cmd_str == ' ') || (*cmd_str == '\t'))
 			cmd_str = next_word(cmd_str);
 		command(cmd_str);
@@ -1425,8 +1511,8 @@ char *cmd_str;
 		if ((*cmd_str == ' ') || (*cmd_str == '\t'))
 			cmd_str = next_word(cmd_str);
 		c_int = 0;
-		out_buff_name[c_int] = (char) NULL;
-		while ((*cmd_str != '!') && (*cmd_str != '>') && (*cmd_str != '<') && (*cmd_str != ' ') && (*cmd_str != '\t') && (*cmd_str != (char) NULL))
+		out_buff_name[c_int] = '\0';
+		while ((*cmd_str != '!') && (*cmd_str != '>') && (*cmd_str != '<') && (*cmd_str != ' ') && (*cmd_str != '\t') && (*cmd_str != '\0'))
 		{
 			out_buff_name[c_int] = *cmd_str;
 			cmd_str++;
@@ -1437,7 +1523,7 @@ char *cmd_str;
 			copy_str(curr_buff->name, out_buff_name);
 		}
 		else
-			out_buff_name[c_int] = (char) NULL;
+			out_buff_name[c_int] = '\0';
 		if ((*cmd_str == ' ') || (*cmd_str == '\t'))
 			cmd_str = next_word(cmd_str);
 		command(cmd_str);
@@ -1453,7 +1539,7 @@ char *cmd_str;
 	else if (compare(cmd_str, BUFFER_str, FALSE))
 	{
 		cmd_str = next_word(cmd_str);
-		if (*cmd_str == (char) NULL)
+		if (*cmd_str == '\0')
 		{
 			wmove(com_win,0,0);
 			wclrtoeol(com_win);
@@ -1462,16 +1548,15 @@ char *cmd_str;
 		else
 		{
 			tmp = cmd_str;
-			while ((*tmp != ' ') && (*tmp != '\t') && (*tmp != (char) NULL))
+			while ((*tmp != ' ') && (*tmp != '\t') && (*tmp != '\0'))
 				tmp++;
-			*tmp = (char) NULL;
+			*tmp = '\0';
 			chng_buf(cmd_str);
 		}
 	}
 	else if (compare(cmd_str, DELETE_str, FALSE))
 	{
-		if (!strncmp(curr_buff->name, main_buffer_name, 
-						strlen(main_buffer_name)))
+		if (!strcmp(curr_buff->name, main_buffer_name))
 		{
 			wmove(com_win,0,0);
 			wclrtoeol(com_win);
@@ -1494,7 +1579,7 @@ char *cmd_str;
 			wclrtoeol(com_win);
 			wprintw(com_win, no_chng_dir_msg);
 		}
-		else if ((curr_buff->orig_dir == NULL) && (*cmd_str == (char) NULL))
+		else if ((curr_buff->orig_dir == NULL) && (*cmd_str == '\0'))
 		{
 			wmove(com_win,0,0);
 			wclrtoeol(com_win);
@@ -1502,14 +1587,14 @@ char *cmd_str;
 		}
 		else
 		{
-			if (*cmd_str != (char)NULL)
+			if (*cmd_str != '\0')
 				c_temp = cmd_str;
 			else
 				c_temp = curr_buff->orig_dir;
 			tmp = c_temp;
-			while ((*tmp != ' ') && (*tmp != '\t') && (*tmp != (char) NULL))
+			while ((*tmp != ' ') && (*tmp != '\t') && (*tmp != '\0'))
 				tmp++;
-			*tmp = (char) NULL;
+			*tmp = '\0';
 			name = resolve_name(c_temp);
 			retval = chdir(name);
 			if (name != c_temp)
@@ -1532,13 +1617,13 @@ char *cmd_str;
 		cmd_str2 = next_word(cmd_str);
 		if (cmd_str2 != NULL)
 		{
-			if (*cmd_str != (char)NULL)
+			if (*cmd_str != '\0')
 				c_temp = cmd_str2;
 			tmp = c_temp;
-			while ((*tmp != ' ') && (*tmp != '\t') && (*tmp != (char) NULL))
+			while ((*tmp != ' ') && (*tmp != '\t') && (*tmp != '\0'))
 				tmp++;
-			*tmp = (char) NULL;
-			if (*c_temp != (char) NULL)
+			*tmp = '\0';
+			if (*c_temp != '\0')
 				name = resolve_name(c_temp);
 			else
 				name = c_temp;
@@ -1550,6 +1635,16 @@ char *cmd_str;
 	else if (compare(cmd_str, pwd_cmd_str, FALSE))
 	{
 		show_pwd();
+	}
+	else if (compare(cmd_str, DIFF_str, FALSE))
+	{
+		diff_file();
+	}
+	else if (compare(cmd_str, journal_str, FALSE))
+	{
+		wmove(com_win,0,0);
+		wclrtoeol(com_win);
+		wprintw(com_win, "journal file is %s", curr_buff->journal_file);
 	}
 	else
 	{
@@ -1697,7 +1792,7 @@ char *string;
 	if ((*temp == ' ') || (*temp == '\t'))
 		temp = next_word(temp);
 	valid_flag = FALSE;
-	while (*temp != (char) NULL)
+	while (*temp != '\0')
 	{
 		if ((!compare(temp, fn_GOLD_str, FALSE)) && (!valid_flag))
 			valid_flag = TRUE;
@@ -1750,7 +1845,7 @@ char *string;
 			bottom();
 		else if (compare(temp, fn_FORMAT_str,  FALSE))
 			Format();
-		else if ((compare(temp, fn_GOLD_str, FALSE)) && (!valid_flag) && (*(next_word(temp)) == (char) NULL))
+		else if ((compare(temp, fn_GOLD_str, FALSE)) && (!valid_flag) && (*(next_word(temp)) == '\0'))
 			gold_func();
 		else if (compare(temp, fn_MARGINS_str, FALSE))
 			observ_margins = TRUE;
@@ -1930,7 +2025,7 @@ char *string;
 		{
 			delim = *temp;
 			temp++;
-			while ((*temp != delim) && (*temp != (char) NULL))
+			while ((*temp != delim) && (*temp != '\0'))
 			{
 				insert(*temp);
 				temp++;
@@ -2031,7 +2126,7 @@ dump_aee_conf()
 		while ((string = fgets(buffer, 512, old_init_file)) != NULL)
 		{
 			length = strlen(string);
-			string[length - 1] = (char) NULL;
+			string[length - 1] = '\0';
 
 			if (unique_test(string, init_strings) == 1)
 			{
@@ -2114,6 +2209,7 @@ dump_aee_conf()
 
 	wprintw(com_win, conf_dump_success_msg, file_name);
 	wrefresh(com_win);
+	clr_cmd_line = TRUE;
 
 	if ((option == 2) && (file_name != home_dir))
 	{

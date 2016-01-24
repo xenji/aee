@@ -1,11 +1,11 @@
 /*
  |	format.c
  |
- |	$Header: /home/hugh/sources/aee/RCS/format.c,v 1.11 1998/10/11 17:02:14 hugh Exp $
+ |	$Header: /home/hugh/sources/aee/RCS/format.c,v 1.13 2010/07/18 00:59:02 hugh Exp hugh $
  */
  
 /*
- |	Copyright (c) 1987, 1988, 1989, 1991, 1994, 1995, 1996 Hugh Mahon.
+ |	Copyright (c) 1987, 1988, 1989, 1991, 1994, 1995, 1996, 1998, 2009, 2010 Hugh Mahon.
  */
 
 #include "aee.h"
@@ -31,13 +31,13 @@ struct text *test_line;
 	if ((*line == '.') || (*line == '>'))
 		return(TRUE);
 
-	while ((*line != (char) NULL) && ((*line == ' ') || (*line == '\t')) && (length <= curr_buff->curr_line->line_length))
+	while ((*line != '\0') && ((*line == ' ') || (*line == '\t')) && (length <= curr_buff->curr_line->line_length))
 	{
 		length++;
 		line++;
 	}
 
-	if (*line != (char) NULL)
+	if (*line != '\0')
 		return(FALSE);
 	else
 		return(TRUE);
@@ -116,14 +116,14 @@ Format()	/* format the paragraph according to set margins	*/
 	offset -= curr_buff->position;
 	line = temp1 = curr_buff->pointer;
 	counter = curr_buff->position;
-	while ((*temp1 != (char) NULL) && (*temp1 != ' ') && (*temp1 != '\t') && (counter < curr_buff->curr_line->line_length))
+	while ((*temp1 != '\0') && (*temp1 != ' ') && (*temp1 != '\t') && (counter < curr_buff->curr_line->line_length))
 	{
 		*temp2 = *temp1;
 		temp2++;
 		temp1++;
 		counter++;
 	}
-	*temp2 = (char) NULL;
+	*temp2 = '\0';
 	if (curr_buff->position != 1)
 		bol();
 	while (!Blank_Line(curr_buff->curr_line->prev_line))
@@ -370,7 +370,7 @@ struct text *test_line;
 		return(0);
 
 	pnt = test_line->line;
-	if ((pnt == NULL) || (*pnt == (char) NULL) || (*pnt == '.') || 
+	if ((pnt == NULL) || (*pnt == '\0') || (*pnt == '.') || 
 	    (*pnt == '>'))
 		return(0);
 
@@ -379,16 +379,16 @@ struct text *test_line;
 		pnt = next_word(pnt);
 	}
 
-	if (*pnt == (char) NULL)
+	if (*pnt == '\0')
 		return(0);
 
 	counter = 0;
-	while ((*pnt != (char) NULL) && ((*pnt != ' ') && (*pnt != '\t')))
+	while ((*pnt != '\0') && ((*pnt != ' ') && (*pnt != '\t')))
 	{
 		pnt++;
 		counter++;
 	}
-	while ((*pnt != (char) NULL) && ((*pnt == ' ') || (*pnt == '\t')))
+	while ((*pnt != '\0') && ((*pnt == ' ') || (*pnt == '\t')))
 	{
 		pnt++;
 		counter++;
@@ -440,7 +440,7 @@ Auto_Format()	/* format the paragraph according to set margins	*/
 	temp_forward = forward;
 	forward = TRUE;
 	offset = curr_buff->position;
-	if ((curr_buff->position != 1) && ((*curr_buff->pointer == ' ') || (*curr_buff->pointer == '\t') || (curr_buff->position == curr_buff->curr_line->line_length) || (*curr_buff->pointer == (char) NULL)))
+	if ((curr_buff->position != 1) && ((*curr_buff->pointer == ' ') || (*curr_buff->pointer == '\t') || (curr_buff->position == curr_buff->curr_line->line_length) || (*curr_buff->pointer == '\0')))
 		prev_word();
 	temp_dword = d_word;
 	temp_dwl = d_wrd_len;
@@ -455,14 +455,14 @@ Auto_Format()	/* format the paragraph according to set margins	*/
 	offset -= curr_buff->position;
 	counter = curr_buff->position;
 	line = temp1 = curr_buff->pointer;
-	while ((*temp1 != (char) NULL) && (*temp1 != ' ') && (*temp1 != '\t') && (counter < curr_buff->curr_line->line_length))
+	while ((*temp1 != '\0') && (*temp1 != ' ') && (*temp1 != '\t') && (counter < curr_buff->curr_line->line_length))
 	{
 		*temp2 = *temp1;
 		temp2++;
 		temp1++;
 		counter++;
 	}
-	*temp2 = (char) NULL;
+	*temp2 = '\0';
 	if (curr_buff->position != 1)
 		bol();
 	while (!Blank_Line(curr_buff->curr_line->prev_line))

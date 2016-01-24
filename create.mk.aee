@@ -4,23 +4,44 @@
 #	This script will determine if the system is a System V or BSD based
 #	UNIX system and create a makefile for aee appropriate for the system.
 #
-# $Header: /home/hugh/sources/aee/RCS/create.mk.aee,v 1.11 1997/04/06 04:46:59 hugh Exp $
+# $Header: /home/hugh/sources/aee/RCS/create.mk.aee,v 1.19 2010/07/18 00:57:43 hugh Exp hugh $
 #
 
 other_cflags=""
 
+# test for compilers, if gcc is on the system then use that, otherwise 
+# default to 'cc'
+
+string="`whereis gcc | grep bin`"
+
+if [ -n "$string" ]
+then
+	xcc="gcc"
+else
+	xcc="cc"
+fi
+
 # test for existence of termcap (exists on both BSD and SysV systems)
 
-if [ -f /etc/termcap -o -f /usr/share/lib/termcap ]
+if [ -f /etc/termcap -o -f /usr/share/lib/termcap -o -f /usr/share/misc/termcap ]
 then
-	termcap_exists="TRUE"
+	if [ -f /usr/share/lib/termcap ]
+	then
+		termcap_exists="-DTERMCAP=\"\\\"/usr/share/lib/termcap\\\"\""
+	elif [ -f /usr/share/misc/termcap ]
+	then
+		termcap_exists="-DTERMCAP=\"\\\"/usr/share/misc/termcap\\\"\""
+	elif [ -f /etc/termcap ]
+	then
+		termcap_exists="-DTERMCAP=\"\\\"/etc/termcap\\\"\""
+	fi
 else
 	termcap_exists=""
 fi
 
 # test for terminfo directory (exists on SysV systems)
 
-if [ -d /usr/lib/terminfo -o -d /usr/share/lib/terminfo ]
+if [ -d /usr/lib/terminfo -o -d /usr/share/lib/terminfo -o -d /usr/share/terminfo ]
 then
 	terminfo_exists=""
 else
@@ -59,6 +80,16 @@ then
 	HEADER_FILES="$HEADER_FILES /usr/include/sys/types.h"
 fi
 
+# check for unistd.h
+
+if [ -f /usr/include/unistd.h ]
+then
+	HAS_UNISTD=-DHAS_UNISTD
+	HEADER_FILES="$HEADER_FILES /usr/include/unistd.h"
+else
+	HAS_UNISTD=""
+fi
+
 if [ -n "$HEADER_FILES" ]
 then
 	string="`grep select $HEADER_FILES`"
@@ -72,9 +103,19 @@ fi
 
 # if HP-UX, add other CFLAGS
 
-if [ "`uname`" = "HP-UX" ]
+name_string="`uname`"
+
+if [ "$name_string" = "HP-UX" ]
 then
 	other_cflags="$other_cflags -Wa,-Ns10000 -Aa -D_HPUX_SOURCE"
+fi
+
+if [ "$name_string" = "Darwin" ]
+then
+	strip_option=""
+	other_cflags="-DNO_CATGETS"
+else
+	strip_option="-s"
 fi
 
 # check for existence of select.h (on AIX)
@@ -102,15 +143,6 @@ then
 	HAS_STDARG=-DHAS_STDARG
 else
 	HAS_STDARG=""
-fi
-
-# check for unistd.h
-
-if [ -f /usr/include/unistd.h ]
-then
-	HAS_UNISTD=-DHAS_UNISTD
-else
-	HAS_UNISTD=""
 fi
 
 # check for ctype.h
@@ -233,17 +265,17 @@ if [ -n "$CFLAGS" ]
 then
 	if [ -z "`echo $CFLAGS | grep '[-]g'`" ]
 	then
-		other_cflags="$other_cflags ${CFLAGS} -s"
+		other_cflags="$other_cflags ${CFLAGS} ${strip_option}"
 	else
 		other_cflags="$other_cflags ${CFLAGS}"
 	fi
 else
-	other_cflags="$other_cflags -s"
+	other_cflags="$other_cflags ${strip_option}"
 fi
 
 echo "DEFINES =	$termio $terminfo_exists $BSD_SELECT $catgets $select $curses " > make.aee
 echo "" >> make.aee
-echo "CFLAGS =	$HAS_UNISTD $HAS_STDARG $HAS_STDLIB $HAS_CTYPE $HAS_SYS_IOCTL $HAS_SYS_WAIT $other_cflags $five_lib $five_include $select_hdr" >> make.aee
+echo "CFLAGS =	$HAS_UNISTD $HAS_STDARG $HAS_STDLIB $HAS_CTYPE $HAS_SYS_IOCTL $HAS_SYS_WAIT $other_cflags $five_lib $five_include $select_hdr $termcap_exists" >> make.aee
 echo "" >> make.aee
 echo "" >> make.aee
 echo "all :	$TARGET" >> make.aee
@@ -251,22 +283,24 @@ echo "all :	$TARGET" >> make.aee
 
 cat  >> make.aee << EOF
 
+CC = $xcc
+
 OBJS = aee.o control.o format.o localize.o srch_rep.o delete.o mark.o motion.o keys.o help.o windows.o journal.o file.o
 
 .c.o: 
-	cc \$(DEFINES) -c \$*.c \$(CFLAGS)
+	\$(CC) \$(DEFINES) -c \$*.c \$(CFLAGS)
 
 curses :	\$(OBJS)
-	cc -o aee \$(OBJS) \$(CFLAGS) -lcurses 
+	\$(CC) -o aee \$(OBJS) \$(CFLAGS) -lcurses 
 
 aee :	\$(OBJS) new_curse.o
-	cc -o aee \$(OBJS) new_curse.o \$(CFLAGS) 
+	\$(CC) -o aee \$(OBJS) new_curse.o \$(CFLAGS) 
 
 new_curse.o :	new_curse.c new_curse.h
-	cc new_curse.c -c \$(DEFINES) \$(CFLAGS)
+	\$(CC) new_curse.c -c \$(DEFINES) \$(CFLAGS)
 
 
-aee.o: aee.c aee.h new_curse.h 
+aee.o: aee.c aee.h new_curse.h aee_version.h
 control.o: control.c aee.h new_curse.h 
 delete.o: delete.c aee.h new_curse.h 
 format.o: format.c aee.h new_curse.h 

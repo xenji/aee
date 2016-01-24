@@ -153,7 +153,7 @@ typedef struct WIND {
 extern WINDOW *curscr;
 extern WINDOW *stdscr;
 
-extern int LINES, COLS;
+extern unsigned int LINES, COLS;
 
 /* X-windows definitions	*/
 #include <X11/Xlib.h>

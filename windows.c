@@ -1,7 +1,7 @@
 /*
  |	windows.c
  |
- |	$Header: /home/hugh/sources/aee/RCS/windows.c,v 1.18 1999/01/01 23:14:51 hugh Exp $
+ |	$Header: /home/hugh/sources/aee/RCS/windows.c,v 1.20 2010/07/18 01:01:22 hugh Exp hugh $
  */
 
 /*
@@ -20,6 +20,7 @@ new_screen()		/* draw all of the new information on the screen */
 	struct bufr *tb;	/* temp buffer for storage of current stats */
 	struct bufr *buff_holder;	/* tmp storage of curr_buff	*/
 	int temp_mark;		/* temporary mark flag			*/
+	char *name;
 
 	if ((windows) && (num_of_bufs > 1))
 	{
@@ -33,8 +34,9 @@ new_screen()		/* draw all of the new information on the screen */
 			wrefresh(t_buff->footer);
 			wmove(t_buff->footer, 0,0);
 			wstandout(t_buff->footer);
-			waddstr(t_buff->footer, "  ");
-			for (i = 2, nchar = t_buff->name; (i < COLS) && (*nchar != (char) NULL); i+=len_char(*nchar, i), nchar++)
+			wprintw(t_buff->footer, "%c  ", CHNG_SYMBOL(t_buff->changed) );
+			name = (t_buff->file_name != NULL ? t_buff->file_name : t_buff->name);
+			for (i = 2, nchar = name; (i < COLS) && (*nchar != '\0'); i+=len_char(*nchar, i), nchar++)
 				waddch(t_buff->footer, *nchar);
 			for (; i < COLS; i++)
 				waddch(t_buff->footer, '-');
@@ -49,7 +51,7 @@ new_screen()		/* draw all of the new information on the screen */
 		curr_buff = buff_holder;
 		wmove(curr_buff->footer, 0, 0);
 		wstandout(curr_buff->footer);
-		waddch(curr_buff->footer, '*');
+		wprintw(curr_buff->footer, "%c*", CHNG_SYMBOL(curr_buff->changed));
 		wstandend(curr_buff->footer);
 		wrefresh(curr_buff->footer);
 		free(tb);
@@ -83,7 +85,7 @@ char *ident;
 	{
 		wmove(curr_buff->footer, 0, 0);
 		wstandout(curr_buff->footer);
-		waddch(curr_buff->footer, ' ');
+		wprintw(curr_buff->footer, "%c ", CHNG_SYMBOL(curr_buff->changed) );
 		wstandend(curr_buff->footer);
 		wrefresh(curr_buff->footer);
 	}
@@ -99,7 +101,7 @@ char *ident;
 	curr_buff->curr_line = curr_buff->first_line = txtalloc();
 	t->next_buff = NULL;
 	curr_buff->pointer = curr_buff->curr_line->line = curr_buff->first_line->line = xalloc(10);
-	*t->first_line->line = (char) NULL;
+	*t->first_line->line = '\0';
 	t->first_line->vert_len = t->first_line->line_number = t->first_line->line_length = 1;
 	t->first_line->max_length = 10;
 	t->first_line->prev_line = NULL;
@@ -132,7 +134,7 @@ char *name;
 
 	clr_cmd_line = TRUE;
 	test = next_word(name);
-	if ((*test == (char) NULL) && (!mark_text))
+	if ((*test == '\0') && (!mark_text))
 	{
 		wrefresh(curr_buff->win);
 
@@ -150,7 +152,7 @@ char *name;
 			{
 				wmove(curr_buff->footer, 0, 0);
 				wstandout(curr_buff->footer);
-				waddch(curr_buff->footer, ' ');
+				wprintw(curr_buff->footer, "%c ", CHNG_SYMBOL(curr_buff->changed));
 				wstandend(curr_buff->footer);
 				wrefresh(curr_buff->footer);
 			}
@@ -161,13 +163,14 @@ char *name;
 			{
 				wmove(curr_buff->footer, 0, 0);
 				wstandout(curr_buff->footer);
-				waddch(curr_buff->footer, '*');
+				wprintw(curr_buff->footer, "%c*", CHNG_SYMBOL(curr_buff->changed));
 				wstandend(curr_buff->footer);
 				wrefresh(curr_buff->footer);
 			}
 			wmove(com_win,0,0);
 			wclrtoeol(com_win);
-			wprintw(com_win, buff_msg, curr_buff->name);
+			wprintw(com_win, buff_msg, curr_buff->file_name != NULL ? 
+			           curr_buff->file_name : curr_buff->name);
 			wrefresh(com_win);
 			wmove(curr_buff->win, curr_buff->scr_vert, curr_buff->scr_horz);
 		}

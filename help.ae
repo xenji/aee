@@ -25,16 +25,16 @@ commands
 	Aee uses word commands to perform several functions.  The following are
 the commands used:
 
-   !            eight        line          nooverstrike  save
-   +-           exit         literal       nostatus      show
-   autoformat   expand       noautoformat  nowindows     spacing
-   binary       file         nocase        overstrike    status
-   case         height       noeight       print         tabs
-   cd           help         noexpand      pwd           text
-   character    indent       noindent      quit          untabs
-   define       info         noinfo        read          windows
-   delete       justify      nojustify     resequence    write
-   edit         leftmargin   noliteral     rightmargin
+   !            edit         leftmargin   noliteral    rightmargin
+   +-           eight        line         nooverstrike save
+   autoformat   exit         literal      nostatus     show
+   binary       expand       noautoformat nowindows    spacing
+   case         file         nocase       overstrike   status
+   cd           height       noeight      print        tabs
+   character    help         noexpand     pwd          text
+   define       indent       noindent     quit         untabs
+   delete       info         noinfo       read         windows
+   diff         justify      nojustify    resequence   write
 
 
 binary
@@ -199,6 +199,20 @@ delete
 	The command 'delete' deletes the buffer you are currently operating in.
 You cannot delete the buffer named 'main', since this is the buffer containing
 the file you read in upon entering aee.
+
+
+diff
+
+	The 'diff' command will provide a diff of the contents of the 
+current edit buffer and the file associated with the buffer.  A new 
+window (buffer) will be created to contain the diffs.  If the diff 
+command had been previously run then the buffer created previously will 
+be deleted and a fresh buffer created.
+
+	Note that this command will only work if a file is associated 
+with the buffer, which happens when the buffer is the main buffer, or 
+when the 'edit' command was used to edit another file in an existing 
+session.
 
 
 exit

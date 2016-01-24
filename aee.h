@@ -1,9 +1,9 @@
 /*
  |	aee.h
  |
- |	$Header: /home/hugh/sources/aee/RCS/aee.h,v 1.36 1999/02/01 01:09:37 hugh Exp $
+ |	$Header: /home/hugh/sources/aee/RCS/aee.h,v 1.44 2010/07/18 21:52:43 hugh Exp hugh $
  |
- |	Copyright (c) 1986 - 1988, 1991 - 1996, 1999 Hugh Mahon.
+ |	Copyright (c) 1986 - 1988, 1991 - 1996, 1999, 2000, 2001, 2002, 2010 Hugh Mahon.
  |
  */
 
@@ -176,6 +176,8 @@ struct bufr {			/* structure for names of buffers	*/
 	char edit_buffer;	/* true if created as a result of edit cmd */
 	char dos_file;		/* true if file uses (or is to use) CR/LF 
 				   instead of just LF as line terminator   */
+	struct stat fileinfo;	/* information about the file obtained 
+				   using stat(2)			*/
 	};
 
 extern struct bufr *first_buff;	/* first buffer in list			*/
@@ -207,6 +209,8 @@ struct journal_db {
 	char *journal_name;
 	struct journal_db *next;
 	};
+
+#define CHNG_SYMBOL(a) (a != 0 ? '+' : ' ')
 
 extern struct del_buffs *undel_first;
 extern struct del_buffs *undel_current;
@@ -282,6 +286,7 @@ extern char restricted;		/* flag to indicate restricted mode	*/
 extern char com_win_initialized;
 extern char text_only;		/* editor is to treat file being read as 
 				   text only (not a binary file)	*/
+extern char ee_mode_menu; 	/* make main menu look more like ee's	*/
 
 #define CHAR_DELETED 1
 #define CHAR_BACKSPACE 2
@@ -430,6 +435,8 @@ extern struct menu_entries edit_menu[];
 extern struct menu_entries main_menu[];
 extern struct menu_entries del_buff_menu[];
 extern struct menu_entries rae_err_menu[];
+extern struct menu_entries file_being_edited_menu[];
+extern struct menu_entries file_modified_menu[];
 
 
 #define INFO_WIN_HEIGHT_DEF 6
@@ -441,8 +448,8 @@ extern struct menu_entries rae_err_menu[];
 #define CONTROL_KEYS 1
 #define COMMANDS     2
 
-extern char *commands[70];
-extern char *init_strings[40];
+extern char *commands[72];
+extern char *init_strings[41];
 
 /*
  |	memory debugging macros
@@ -527,9 +534,18 @@ extern char *info_help_msg;
 extern char *unix_text_msg, *dos_text_msg;
 extern char *text_cmd, *binary_cmd;
 extern char *text_msg, *binary_msg, *dos_msg, *unix_msg;
+extern char *file_being_edited_msg;
+extern char *file_modified_msg;
+extern char *DIFF_str;
+extern char *ee_mode_str;
+extern char *journal_str;
+extern char *journal_err_str;
 
 extern char *copyright_notice;
 extern char *version_string;
+
+extern char *main_menu_strings[10];
+extern char *ee_mode_main_menu_strings[10];
 
 /*
  |	Declare addresses for routines referenced in menus below.
@@ -614,6 +630,7 @@ void paint_information P_((void));
 void paint_info_win P_((void));
 int unique_test P_((char *string, char *list[]));
 void command_prompt P_((void));
+void tab_resize P_((void));
 void command P_((char *cmd_str));
 void init_keys P_((void));
 void parse P_((char *string));
@@ -713,6 +730,7 @@ int del_buf P_((void));
 void redo_win P_((void));
 void resize_check P_((void));
 void set_up_term P_((void));
+void diff_file P_((void));
 
 #ifdef XAE
 void event_init P_((void));

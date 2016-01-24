@@ -1,11 +1,11 @@
 /*
  |	localize.c
  |
- |	$Header: /home/hugh/sources/aee/RCS/localize.c,v 1.25 1999/01/31 04:29:57 hugh Exp $
+ |	$Header: /home/hugh/sources/aee/RCS/localize.c,v 1.31 2010/07/18 21:54:48 hugh Exp hugh $
  */
 
 /*
- |	Copyright (c) 1994, 1995, 1996, 1998, 1999 Hugh Mahon.
+ |	Copyright (c) 1994, 1995, 1996, 1998, 1999, 2001, 2002, 2010 Hugh Mahon.
  */
 
 #include "aee.h"
@@ -124,15 +124,30 @@ strings_init()
 	edit_menu[2].item_string = catgetlocal( 42, "copy marked text");
 	edit_menu[3].item_string = catgetlocal( 43, "cut (delete) marked text");
 	edit_menu[4].item_string = catgetlocal( 44, "paste");
-	main_menu[0].item_string = catgetlocal( 45, "main menu");
-	main_menu[1].item_string = catgetlocal( 46, "leave editor");
-	main_menu[2].item_string = catgetlocal( 47, "help");
-	main_menu[3].item_string = catgetlocal( 48, "edit");
-	main_menu[4].item_string = catgetlocal( 49, "file operations");
-	main_menu[5].item_string = catgetlocal( 50, "redraw screen");
-	main_menu[6].item_string = catgetlocal( 51, "settings");
-	main_menu[7].item_string = catgetlocal( 52, "search/replace");
-	main_menu[8].item_string = catgetlocal( 53, "miscellaneous");
+	main_menu[0].item_string = main_menu_strings[0] = catgetlocal( 45, "main menu");
+	main_menu[1].item_string = main_menu_strings[1] = catgetlocal( 46, "leave editor");
+	main_menu[2].item_string = main_menu_strings[2] = catgetlocal( 47, "help");
+	main_menu[3].item_string = main_menu_strings[3] = catgetlocal( 48, "edit");
+	main_menu[4].item_string = main_menu_strings[4] = catgetlocal( 49, "file operations");
+	main_menu[5].item_string = main_menu_strings[5] = catgetlocal( 50, "redraw screen");
+	main_menu[6].item_string = main_menu_strings[6] = catgetlocal( 51, "settings");
+	main_menu[7].item_string = main_menu_strings[7] = catgetlocal( 52, "search/replace");
+	main_menu[8].item_string = main_menu_strings[8] = catgetlocal( 53, "miscellaneous");
+
+	/*
+	 |	have main menu entries in same manner as ee's
+	 */
+
+	ee_mode_main_menu_strings[0] = main_menu_strings[0]; /* title */
+	ee_mode_main_menu_strings[1] = main_menu_strings[1]; /* leave */
+	ee_mode_main_menu_strings[2] = main_menu_strings[2]; /* help */
+	ee_mode_main_menu_strings[3] = main_menu_strings[4]; /* file */
+	ee_mode_main_menu_strings[4] = main_menu_strings[5]; /* redraw screen */
+	ee_mode_main_menu_strings[5] = main_menu_strings[6]; /* settings */
+	ee_mode_main_menu_strings[6] = main_menu_strings[7]; /* search/replace */
+	ee_mode_main_menu_strings[7] = main_menu_strings[8]; /* misc */
+	ee_mode_main_menu_strings[8] = main_menu_strings[3]; /* edit */
+
 
 	SL_line_str = catgetlocal( 54, "line=%d");
 	SL_col_str = catgetlocal( 55, "col=%d");
@@ -203,6 +218,7 @@ strings_init()
 	PRINT_str = catgetlocal( 120, "PRINT");
 	BUFFER_str = catgetlocal( 121, "BUFFER");
 	DELETE_str = catgetlocal( 122, "DELETE");
+	DIFF_str = catgetlocal (406, "DIFF");
 	GOLD_str = catgetlocal( 123, "GOLD");
 	tab_msg = catgetlocal( 124, "set tabs are: ");
 	file_write_prompt_str = catgetlocal( 125, "name of file to write: ");
@@ -476,6 +492,17 @@ strings_init()
 	binary_msg = catgetlocal( 396, "bin");
 	dos_msg = catgetlocal( 397, "DOS");
 	unix_msg = catgetlocal( 398, " UX");
+	file_being_edited_msg = catgetlocal( 399, "file %s already being edited");
+	file_being_edited_menu[1].item_string = catgetlocal( 400, "don't edit");
+	file_being_edited_menu[2].item_string = catgetlocal( 401, "edit anyway");
+	file_modified_msg = catgetlocal( 402, "file %s has been modified since last read");
+	file_modified_menu[1].item_string = catgetlocal( 403, "do not write file");
+	file_modified_menu[2].item_string = catgetlocal( 404, "write anyway");
+	file_modified_menu[3].item_string = catgetlocal( 405, "do not write file, show diffs");
+	/* 406 is above as DIFF_str */
+	ee_mode_str = catgetlocal( 407, "ee_mode");
+	journal_str = catgetlocal( 408, "journal");
+	journal_err_str = catgetlocal( 409, "Error in journal file operation, closing journal.");
 
 
 	del_buff_menu[0].item_string = changes_made_title;
@@ -609,22 +636,24 @@ strings_init()
 	commands[51] = info_win_height_cmd_str;
 	commands[52] = text_cmd;
 	commands[53] = binary_cmd;
-	commands[54] = ">";
-	commands[55] = "!";
-	commands[56] = "0";
-	commands[57] = "1";
-	commands[58] = "2";
-	commands[59] = "3";
-	commands[60] = "4";
-	commands[61] = "5";
-	commands[62] = "6";
-	commands[63] = "7";
-	commands[64] = "8";
-	commands[65] = "9";
-	commands[66] = "+";
-	commands[67] = "-";
-	commands[68] = "<";
-	commands[69] = NULL;
+	commands[54] = DIFF_str;
+	commands[55] = ">";
+	commands[56] = "!";
+	commands[57] = "0";
+	commands[58] = "1";
+	commands[59] = "2";
+	commands[60] = "3";
+	commands[61] = "4";
+	commands[62] = "5";
+	commands[63] = "6";
+	commands[64] = "7";
+	commands[65] = "8";
+	commands[66] = "9";
+	commands[67] = "+";
+	commands[68] = "-";
+	commands[69] = "<";
+	commands[70] = journal_str;
+	commands[71] = NULL;
 
 	init_strings[0] = INFO_str;
 	init_strings[1] = NOINFO_str;
@@ -665,7 +694,8 @@ strings_init()
 	init_strings[36] = info_win_height_cmd_str;
 	init_strings[37] = text_cmd;
 	init_strings[38] = binary_cmd;
-	init_strings[39] = NULL;
+	init_strings[39] = ee_mode_str;
+	init_strings[40] = NULL;
 
 #ifndef NO_CATGETS
 	catclose(catalog);

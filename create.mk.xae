@@ -4,7 +4,7 @@
 #	This script will determine if the system is a System V or BSD based
 #	UNIX system and create a makefile for xae appropriate for the system.
 #
-# $Header: /home/hugh/sources/aee/RCS/create.mk.xae,v 1.9 1998/08/14 18:38:26 hugh Exp $
+# $Header: /home/hugh/sources/aee/RCS/create.mk.xae,v 1.12 2010/07/18 00:58:28 hugh Exp hugh $
 #
 
 other_cflags=""
@@ -13,9 +13,19 @@ HEADER_FILES=""
 
 # if HP-UX, add other CFLAGS
 
-if [ "`uname`" = "HP-UX" ]
+name_string="`uname`"
+
+if [ "$name_string" = "HP-UX" ]
 then
 	other_cflags="$other_cflags -Wa,-Ns10000 -Aa -D_HPUX_SOURCE"
+fi
+
+if [ "$name_string" = "Darwin" ]
+then
+	strip_option=""
+	other_cflags="-DNO_CATGETS"
+else
+	strip_option="-s"
 fi
 
 # check for stdlib.h
@@ -149,12 +159,12 @@ if [ -n "$CFLAGS" ]
 then
 	if [ -z "`echo $CFLAGS | grep '[-]g'`" ]
 	then
-		other_cflags="$other_cflags ${CFLAGS} -s"
+		other_cflags="$other_cflags ${CFLAGS} ${strip_option}"
 	else
 		other_cflags="$other_cflags ${CFLAGS}"
 	fi
 else
-	other_cflags="$other_cflags -s"
+	other_cflags="$other_cflags ${strip_option}"
 fi
 
 # make xae_dir subdirectory exists
@@ -193,7 +203,7 @@ xae :	\$(OBJS) Xcurse.o xif.o
 
 Xcurse.o: ../Xcurse.c ../aee.h ../Xcurse.h
 	\${CC_CMD} ../Xcurse.c 
-aee.o: ../aee.c ../aee.h ../Xcurse.h
+aee.o: ../aee.c ../aee.h ../Xcurse.h ../aee_version.h
 	\${CC_CMD} ../aee.c
 control.o: ../control.c ../aee.h ../Xcurse.h
 	\${CC_CMD} ../control.c
