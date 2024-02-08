@@ -3,7 +3,7 @@
 This is a slight modification of an opensource software originally downloaded from: [http://www.users.uswest.net/~hmahon/](http://www.users.uswest.net/~hmahon/).
 the original uploader of this repo and I are NOT the original authors of this software! Please read the `README.aee` file for further information.
 
-The version I've downloaded is 2.2.21.
+The version originally downloaded is 2.2.21.
 
 Some screenshots:
 
