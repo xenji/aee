@@ -5,9 +5,9 @@
 #	UNIX system and create a makefile for aee appropriate for the system.
 #
 # $Header: /home/hugh/sources/aee/RCS/create.mk.aee,v 1.19 2010/07/18 00:57:43 hugh Exp hugh $
-#
+# $Update_Header: Lucy, add old Cflag from gcc default that is no longer in modern gcc
 
-other_cflags=""
+other_cflags="-fcommon"
 
 # test for compilers, if gcc is on the system then use that, otherwise 
 # default to 'cc'
