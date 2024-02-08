@@ -7,7 +7,7 @@
 # $Header: /home/hugh/sources/aee/RCS/create.mk.xae,v 1.12 2010/07/18 00:58:28 hugh Exp hugh $
 #
 
-other_cflags=""
+other_cflags="-fcommon -Wl,--allow-multiple-definition"
 
 HEADER_FILES=""
 
