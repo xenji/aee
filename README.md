@@ -1,9 +1,15 @@
 # ATTENTION
 
-This is just a personal backup of an opensource software originally downloaded from: [http://www.users.uswest.net/~hmahon/](http://www.users.uswest.net/~hmahon/).
-I am NOT the author of this software! Please read the `README.aee` file for further information.
+This is a slight modification of an opensource software originally downloaded from: [http://www.users.uswest.net/~hmahon/](http://www.users.uswest.net/~hmahon/).
+the original uploader of this repo and I are NOT the original authors of this software! Please read the `README.aee` file for further information.
 
 The version I've downloaded is 2.2.21.
+
+Some screenshots:
+
+![aee in Konsole](https://github.com/anoraktrend/aee/blob/master/.imgs.d/aee%20with%20better%20font.png?raw=true)
+
+![aee with it's menu open](https://github.com/anoraktrend/aee/blob/master/.imgs.d/aee%20menu.png?raw=true)
 
 # Important info for OSX users:
 
